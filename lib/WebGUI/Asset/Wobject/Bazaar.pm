@@ -91,6 +91,41 @@ sub formatList {
 	my $limit = $self->get('listLimit');
 	my $out = '<h3>'.$title.'</h3>';
 	my $session = $self->session;
+	$session->style->setRawHeadTags(q{
+	<style type="text/css">
+	.thumbpic {
+		float: right;
+	}
+	.thumbpic:hover {
+		background-color: transparent;
+		z-index: 50;
+	}
+
+	.thumbpic span {
+		background-color: black;
+		padding: 5px;
+		border: 1px dashed gray;
+		visibility: hidden;
+		color: black;
+		text-decoration: none;
+		display: none;
+		position: absolute;
+	}
+
+	.thumbpic span img { 
+		border-width: 0;
+		padding: 2px;
+		max-height: 480px;
+		max-width: 640px;
+	}
+
+	.thumbpic:hover span { 
+		visibility: visible;
+		display: block;
+		right: 100px;
+	}		
+</style>							   
+		});
 	foreach my $id (@$assetIds) {
 		my $asset = WebGUI::Asset::Sku::BazaarItem->new($session, $id);
 		if (defined $asset) {
@@ -99,7 +134,7 @@ sub formatList {
 			my $screens = $asset->getScreenStorage;
 			my $firstScreen = $screens->getFiles->[0];
 			if ($firstScreen ne "") {
-				$out .= q{<img src="}.$screens->getThumbnailUrl($firstScreen).q{" style="float: right;" alt="}.$firstScreen.q{"/>};
+				$out .= q{<a class="thumbpic" href="}.$asset->getUrl.q{"><img src="}.$screens->getThumbnailUrl($firstScreen).q{" alt="}.$firstScreen.q{" class="thumbnail" /><span><img src="}.$screens->getUrl($firstScreen).q{" /></span></a> };
 			}
 			$out .= q{<b><a href="}.$asset->getUrl.q{">}.$asset->getTitle.q{</a></b><br />}.$asset->get('synopsis').q{</p>};
 		}
@@ -113,18 +148,33 @@ sub formatList {
 #-------------------------------------------------------------------
 sub formatShortList {
 	my ($self, $url, $title, $query, $params) = @_;
-	my $out = q{<div class="bazaarList"><a href="}.$url.q{"><b>}.$title.q{</b></a><ul>};
+	my $out = q{<fieldset class="bazaarList"><legend><a href="}.$url.q{">}.$title.q{ &raquo;</a></legend>};
 	my $session = $self->session;
 	my $revisions = $self->session->db->read($query, $params);
+	my $first = 1;
     while (my ($id) = $revisions->array) {
 		my $asset = WebGUI::Asset::Sku::BazaarItem->new($session, $id);
 		if (defined $asset) {
-			$out .= q{<li><a href="}.$asset->getUrl.q{">}.$asset->getTitle.q{</a></li>};
+			if ($first) {
+				$out .= q{<div class="firstBazaarItem">};
+				my $screens = $asset->getScreenStorage;
+				my $firstScreen = $screens->getFiles->[0];
+				if ($firstScreen ne "") {
+					$out .= q{<a class="thumbpic" href="}.$asset->getUrl.q{"><img src="}.$screens->getThumbnailUrl($firstScreen).q{" alt="}.$firstScreen.q{" class="thumbnail" /><span><img src="}.$screens->getUrl($firstScreen).q{" /></span></a>};
+				}
+				$out .= q{<a href="}.$asset->getUrl.q{">}.$asset->getTitle.q{</a> - }.$asset->get('synopsis').q{<br />};
+				$out .= q{</div><ul>};
+				$first = 0;
+			}
+			else {
+				$out .= q{<li>&#187;<a href="}.$asset->getUrl.q{">}.$asset->getTitle.q{</a></li>};
+			}
 		}
 	}
-	$out .= q{</ul></div>};
+	$out .= q{</ul></fieldset>};
 	return $out;
 }
+
 #-------------------------------------------------------------------
 sub prepareView {
 	my $self = shift;
@@ -132,17 +182,74 @@ sub prepareView {
 	$self->session->style->setRawHeadTags(q{
 	<style type="text/css">
 	.bazaarList {
-		width: 200px;
+		width: 220px;
 		display: -moz-inline-box;  /* Moz */
 		display: inline-block;  /* Op, Saf, IE \*/
 		vertical-align: top;  /* IE Mac non capisce e a volte crea extra v space */
 		font-size: 12px;
 		margin-right: 20px;
 		margin-bottom: 20px;
+		border: 1px solid #bbbbbb;
+		padding: 5px;
 	}
-	</style>
-	});
-}
+	.bazaarList ul {
+		margin: 5px;
+		padding: 5px;
+		list-style-type: none;
+		text-indent: -5px;
+	}
+	.bazaarList ul li {
+		margin-bottom: 5px;
+	}
+	.bazaarList legend, .bazaarList legend a {
+		text-decoration: none;
+		color: #555555;
+		font-size: 15px;
+		font-weight: bold;
+	}
+	.firstBazaarItem {
+		margin-bottom: 10px;
+		padding: 10px;
+		color: black;
+		background-color: #eeffee;
+	}
+	.thumbpic {
+		z-index: 0;
+		margin-left: 5px;
+		margin-bottom: 5px;
+		float: right;
+	}
+
+	.thumbpic:hover {
+		background-color: transparent;
+		z-index: 50;
+	}
+
+	.thumbpic span {
+		position: absolute;
+		background-color: black;
+		padding: 5px;
+		left: -1000px;
+		border: 1px dashed gray;
+		visibility: hidden;
+		color: black;
+		text-decoration: none;
+	}
+
+	.thumbpic span img { 
+		border-width: 0;
+		padding: 2px;
+		max-height: 480px;
+		max-width: 640px;
+	}
+
+	.thumbpic:hover span { 
+		left: 20px;
+		visibility: visible;
+		z-index: 5000;
+	}		
+</style>							   
+		});}
 
 #-------------------------------------------------------------------
 
@@ -169,12 +276,6 @@ sub view {
 	
 	$out .= $self->get('description');
 	
-	# keywords
-	$out .= q{<p>}.WebGUI::Keyword->new($self->session)->generateCloud({
-        startAsset=>$self,
-        displayFunc=>"byKeyword",
-        }).q{</p>};
-
 	# featured
 	$out .= $self->formatShortList(
 		$self->getUrl('func=byFeatured'),
@@ -216,6 +317,12 @@ sub view {
 		'Recently Updated',
 		"select distinct assetId from bazaarItem order by revisionDate desc limit 10"
 	);
+
+	# keywords
+	$out .= q{<fieldset class="bazaarList"><legend>Keywords</legend>}.WebGUI::Keyword->new($self->session)->generateCloud({
+        startAsset=>$self,
+        displayFunc=>"byKeyword",
+        }).q{</fieldset>};
 
 	# output
 	return $out;

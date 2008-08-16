@@ -28,6 +28,7 @@ use WebGUI::Shop::Vendor;
 use WebGUI::Storage;
 use WebGUI::Storage::Image;
 use WebGUI::Utility;
+use WebGUI::Macro;
 
 
 =head1 NAME
@@ -621,17 +622,27 @@ sub prepareView {
 		);
 	$self->session->style->setRawHeadTags(q{
 	<style type="text/css">
+	fieldset {
+		border: 1px solid #bbbbbb;
+		padding: 5px;
+		margin: 0;
+		margin-bottom: 10px;
+	}
+	legend {
+		color: #555555;
+		font-size: 10px;
+		margin-left: 10px;
+	}
 	p {
 		margin-bottom: 10px;
 	}
-	.bullets li { list-style-type: square; }
 	.thumbpic {
 		z-index: 0;
 	}
 
 	.thumbpic:hover {
 		background-color: transparent;
-		z-index: 5000;
+		z-index: 50;
 	}
 
 	.thumbpic span {
@@ -648,14 +659,15 @@ sub prepareView {
 	.thumbpic span img { 
 		border-width: 0;
 		padding: 2px;
-		max-height: 400px;
-		max-width: 600px;
+		max-height: 480px;
+		max-width: 640px;
 	}
 
 	.thumbpic:hover span { 
-		visibility: visible;
+		left: -650px;
 		top: 0;
-		left: 60px;
+		visibility: visible;
+		z-index: 5000;
 	}		
 </style>							   
 		});
@@ -781,32 +793,24 @@ sub view {
 	if ($session->var->isAdminOn) {
 		$out .= q{<p>}.$self->getToolbar.q{</p>};
 	}
-	$out .= q{<div id="doc" class="yui-t4"><div id="hd"><h3>}.$self->getTitle.q{</h3></div><div id="bd"><div id="yui-main"><div class="yui-b"><div class="yui-g">};
+	$out .= q{<div id="doc3" class="yui-t5"><div id="hd"><h3>}.$self->getTitle.q{</h3></div><div id="bd"><div id="yui-main"><div class="yui-b"><div class="yui-g">};
 	### start main
-	
-	# screen shots
-	my $screens = $self->getScreenStorage;
-	$out .= q{<p>};
-	foreach my $image (@{$screens->getFiles}) {
-		$out .= q{<a class="thumbpic" href="}.$screens->getUrl($image).q{"><img src="}.$screens->getThumbnailUrl($image).q{" alt="}.$image.q{" class="thumbnail" /><span><img src="}.$screens->getUrl($image).q{" /></span></a> };
-	}
-	$out .= q{</p>};
 	
 	# description
 	$out .= q{<p>}.$self->get('description').q{</p>};
 	
 	# requirements
 	if ($self->get('requirements')) {
-		$out .= q{<p><b>System Requirements</b><br />}.$self->get('requirements').q{</p>};
+		$out .= q{<fieldset><legend>System Requirements</legend>}.$self->get('requirements').q{</fieldset>};
 	}
 	
 	# release notes
 	if ($self->get('releaseNotes')) {
-		$out .= q{<p><b>Release Notes for Version }.$self->get('versionNumber').q{</b> (}.$self->get('releaseDate').q{)<br />}.$self->get('releaseNotes').q{</p>};
+		$out .= q{<fieldset><legend>Release Notes for Version }.$self->get('versionNumber').q{</legend> (}.$self->get('releaseDate').q{)<br />}.$self->get('releaseNotes').q{</fieldset>};
 	}
 	
 	# comments
-	$out .= q{<b>Comments</b><br />};
+	$out .= q{<fieldset><legend>Comments</legend>};
 	my $comments = $self->get('comments');
 	foreach my $comment (@$comments) {
 		$out .= q{<p><img src="}.$session->url->extras('wobject/Bazaar/rating/'.$comment->{rating}.'.png').q{" alt="}.$comment->{rating}.q{" style="vertical-align: bottom;" />};
@@ -820,22 +824,23 @@ sub view {
 		$out .= WebGUI::Form::submit($session);
 		$out .= WebGUI::Form::formFooter($session);
 	}
+	$out .= q{</fieldset>};
 
 	### end main
 	$out .= q{</div></div></div><div class="yui-b">};
 	### start sidebar
 	
 	# buy / download
-	$out .= q{<p style="border 1px solid #cccccc;">};
+	$out .= q{<fieldset>};
 	if ($self->canDownload) {
+		$out .= q{<legend>Download</legend>};
 		my $storage = $self->getProductStorage;
-		$out .= q{<b>Download:</b><ul class="bullets">};
 		foreach my $file (@{$storage->getFiles}) {
-			$out .= q{<li><a href="}.$self->getUrl('func=download;filename='.$file).q{">}.$file.q{</a></li>};
+			$out .= q{<img src="}.$storage->getFileIconUrl($file).q{" alt="}.$file.q{" style="vertical-align: middle;" /> <a href="}.$self->getUrl('func=download;filename='.$file).q{">}.$file.q{</a><br />};
 		}
-		$out .= q{</ul>};
 	}
 	elsif ($self->getPrice > 0) {
+		$out .= q{<legend>Purchase</legend>};
 		if ($self->{_hasAddedToCart}) {
 			$out .= $self->getTitle.q{ has been added to your cart. ^ViewCart;};
 		}
@@ -849,20 +854,8 @@ sub view {
 	else {
 		$out .= q{<b>You don't have permission to download this.</b>};
 	}
-	$out .= q{</p>};
-	
-	# subscription
-	unless ($self->session->user->userId eq '1') {
-		$out .= q{<p><a href="}.$self->getUrl('func=toggleSubscription').q{">};
-		if ($self->isSubscribed) {
-			$out .= q{Unsubscribe};
-		}
-		else {
-			$out .= q{Subscribe};
-		}
-		$out .= q{</a></p>};
-	}
-	
+	$out .= q{</fieldset>};
+		
 	# links
 	my $vendorInfo = {};
 	my $vendor = WebGUI::Shop::Vendor->new($session, $self->get('vendorId'));
@@ -871,9 +864,9 @@ sub view {
 			$vendorInfo = $vendor->get;
 		}
 	}
-	$out .= q{<p>};
-	if ($vendorInfo->{name} ne '') {
-		$out .= q{<a href="}.$bazaar->getUrl('func=byVendor;vendorId='.$vendorInfo->{vendorId}).q{">}.$vendorInfo->{name}.q{</a><br />};
+	$out .= q{<fieldset><legend>Links</legend>};
+	if ($vendorInfo->{url} ne '' && $vendorInfo->{name} ne '') {
+		$out .= q{<a href="}.$vendorInfo->{url}.q{">}.$vendorInfo->{name}.q{</a><br />};
 	}
 	if ($self->get('demoUrl') ne '') {
 		$out .= q{<a href="}.$self->get('demoUrl').q{">Demo</a><br />};
@@ -887,20 +880,41 @@ sub view {
 	else {
 		$out .= '<b>No Support Offered</b><br />';
 	}
-	if ($vendorInfo->{url} ne '') {
-		$out .= q{<a href="}.$vendorInfo->{url}.q{">Manufacturer's Site</a><br />};
+	$out .= q{</fieldset>};
+
+	# screen shots
+	my $screens = $self->getScreenStorage;
+	my $files = $screens->getFiles;
+	if (scalar(@$files)) {
+		$out .= q{<fieldset><legend>Screenshots</legend>};
+		foreach my $image (@{$screens->getFiles}) {
+			$out .= q{<a class="thumbpic" href="}.$screens->getUrl($image).q{"><img src="}.$screens->getThumbnailUrl($image).q{" alt="}.$image.q{" class="thumbnail" /><span><img src="}.$screens->getUrl($image).q{" /></span></a> };
+		}
+		$out .= q{</fieldset>};
 	}
-	$out .= q{</p>};
 	
 	# stats
-	$out .= q{<p>
+	$out .= q{<fieldset><legend>Statistics</legend>
 		<b>Downloads:</b> }.$self->get('downloads').q{<br />
 		<b>Views:</b> }.$self->get('views').q{<br />
 		<b>Rating:</b> <img src="}.$session->url->extras('wobject/Bazaar/rating/'.round($self->get('averageRating'),0).'.png').q{" style="vertical-align: middle;" alt="}.$self->get('averageRating').q{" /><br />
+		</fieldset>
 	};
 	
+	# subscription
+	unless ($self->session->user->userId eq '1') {
+		$out .= q{<fieldset><legend>Notifications</legend><a href="}.$self->getUrl('func=toggleSubscription').q{">};
+		if ($self->isSubscribed) {
+			$out .= q{Unsubscribe};
+		}
+		else {
+			$out .= q{Subscribe};
+		}
+		$out .= q{</a></fieldset>};
+	}
+	
 	# keywords
-	$out .= q{<p><b>Keywords:</b> };
+	$out .= q{<fieldset><legend>Keywords</legend> };
 	my $keywords = WebGUI::Keyword->new($self->session)->getKeywordsForAsset({
         asset		=> $self,
         asArrayRef	=> 1,
@@ -908,15 +922,22 @@ sub view {
     foreach my $word (@{$keywords}) {
 		$out .= q{<a href="}.$bazaar->getUrl("func=byKeyword;keyword=".$word).q{">}.$word.q{</a> };
     }
-	$out .= q{</p>};
+	$out .= q{</fieldset>};
 
 	# management
 	if ($self->canEdit ) {
-		$out .= q{[ <a href="}.$self->getUrl("func=delete").q{">Delete</a> / <a href="}.$self->getUrl("func=edit").q{">Edit</a> ]};
+		$out .= q{<fieldset><legend>Management</legend><a href="}.$self->getUrl("func=delete").q{">Delete</a> / <a href="}.$self->getUrl("func=edit").q{">Edit</a></fieldset>};
 	}
 	
+	# navigation
+	$out .= q{<fieldset><legend>Navigation</legend>};
+	if ($vendorInfo->{name} ne '') {
+		$out .= q{<a href="}.$bazaar->getUrl('func=byVendor;vendorId='.$vendorInfo->{vendorId}).q{">More from }.$vendorInfo->{name}.q{</a><br />};
+	}
+	$out .= q{<a href="}.$self->getParent->getUrl.q{">Back to the Bazaar</a><br /></fieldset>};
+
 	### end sidebar
-	$out .= q{</div></div><div id="ft"><div style="float: right;"><a href="}.$self->getParent->getUrl.q{">Back to the Bazaar</a></div><div style="clear: both;"></div></div></div>};
+	$out .= q{</div></div><div id="ft"></div></div>};
 	
 	$self->update({views=>$self->get('views') + 1});
 	return $out;
@@ -986,7 +1007,7 @@ sub www_leaveComment {
 		) {
 
 		my $comments = $self->get('comments');
-		unshift @$comments, {
+		push @$comments, {
 			alias		=> $user->profileField('alias'),
 			userId		=> $user->userId,
 			comment		=> $comment,
