@@ -24,11 +24,12 @@ use WebGUI::Form;
 use WebGUI::Group;
 use WebGUI::HTML;
 use WebGUI::Keyword;
+use WebGUI::Macro;
 use WebGUI::Shop::Vendor;
 use WebGUI::Storage;
 use WebGUI::Storage::Image;
+use WebGUI::User;
 use WebGUI::Utility;
-use WebGUI::Macro;
 
 
 =head1 NAME
@@ -597,6 +598,10 @@ Adds the user to the download group.
 sub onCompletePurchase {
 	my ($self, $item) = @_;
 	$self->getDownloadGroup->addUsers([$item->transaction->get('userId')], $self->get('downloadPeriod'));
+	my $user = WebGUI::User->new($self->session, $item->transaction->get('userId'));
+	if (defined $user) {
+		$user->karma(10,$self->getId, 'Purchased Bazaar Item '.$self->getTitle);
+	}
 }
 
 #-------------------------------------------------------------------
@@ -610,6 +615,10 @@ Remove the user from the download group.
 sub onRefund {
 	my ($self, $item) = @_;
 	$self->getDownloadGroup->deleteUsers([$item->transaction->get('userId')]);
+	my $user = WebGUI::User->new($self->session, $item->transaction->get('userId'));
+	if (defined $user) {
+		$user->karma(-20,$self->getId, 'Returned Bazaar Item '.$self->getTitle);
+	}
 }
 
 #-------------------------------------------------------------------
@@ -617,14 +626,11 @@ sub prepareView {
 	my $self = shift;
 	$self->SUPER::prepareView;
 	$self->session->style->setLink(
-		$self->session->url->extras("yui/build/reset-fonts-grids/reset-fonts-grids.css"),
+		$self->session->url->extras("yui/build/grids/grids-min.css"),
 		{rel=>'stylesheet', type=>"text/css"}
 		);
 	$self->session->style->setRawHeadTags(q{
 	<style type="text/css">
-        h3 {
-            font-size: 25px;
-        }
 	fieldset {
 		border: 1px solid #bbbbbb;
 		padding: 5px;
@@ -635,9 +641,6 @@ sub prepareView {
 		color: #555555;
 		font-size: 10px;
 		margin-left: 10px;
-	}
-	p {
-		margin-bottom: 10px;
 	}
 	.thumbpic {
 		z-index: 0;
@@ -708,7 +711,9 @@ sub processPropertiesFromFormPost {
 	}
 	$self->update($properties);
 	$self->requestAutoCommit;
+	# this is a new version of the product
 	if ($oldVersion ne $self->get('versionNumber')) {
+		$user->karma(100, $self->getId, 'Uploading '.$self->get('versionNumber').' of Bazaar Item '.$self->getTitle);
 		$self->notifySubscribers(
 			$self->getTitle .' has been updated to version '.$self->get('versionNumber').'.',
 			$self->getTitle . ' Updated'
@@ -796,6 +801,7 @@ sub view {
     my ($self) = @_;
     my $session = $self->session;
 	my $bazaar = $self->getParent;
+	my $datetime = $session->datetime;
 	my $out = '';
 	if ($session->var->isAdminOn) {
 		$out .= q{<p>}.$self->getToolbar.q{</p>};
@@ -813,7 +819,7 @@ sub view {
 	
 	# release notes
 	if ($self->get('releaseNotes')) {
-		$out .= q{<fieldset><legend>Release Notes for Version }.$self->get('versionNumber').q{</legend> (}.$self->get('releaseDate').q{)<br />}.$self->get('releaseNotes').q{</fieldset>};
+		$out .= q{<fieldset><legend>Release Notes for Version }.$self->get('versionNumber').q{ (}.$datetime->epochToHuman($datetime->setToEpoch($self->get('releaseDate')),'%z').q{)</legend>}.$self->get('releaseNotes').q{</fieldset>};
 	}
 	
 	# comments
@@ -905,6 +911,7 @@ sub view {
 		<b>Downloads:</b> }.$self->get('downloads').q{<br />
 		<b>Views:</b> }.$self->get('views').q{<br />
 		<b>Rating:</b> <img src="}.$session->url->extras('wobject/Bazaar/rating/'.round($self->get('averageRating'),0).'.png').q{" style="vertical-align: middle;" alt="}.$self->get('averageRating').q{" /><br />
+		<b>Updated:</b> }.$datetime->epochToHuman($self->get('revisionDate'),'%z').q{<br />
 		</fieldset>
 	};
 	
@@ -1029,6 +1036,7 @@ sub www_leaveComment {
 			$sum += $comment->{rating};
 		}
 		$self->update({comments=>$comments, averageRating=>$sum/$count});
+		$user->karma(3, $self->getId, 'Left comment for Bazaar Item '.$self->getTitle);
 	}
 	$self->notifySubscribers(
 		$self->session->user->profileField('alias') .' said:<br /> '.WebGUI::HTML::format($comment,'text'),
