@@ -622,6 +622,9 @@ sub prepareView {
 		);
 	$self->session->style->setRawHeadTags(q{
 	<style type="text/css">
+        h3 {
+            font-size: 25px;
+        }
 	fieldset {
 		border: 1px solid #bbbbbb;
 		padding: 5px;
@@ -749,8 +752,12 @@ sub update {
 	my $self = shift;
 	my $properties = shift;
 	if (exists $properties->{comments}) {
-		$properties->{comments} = JSON->new->encode($properties->{comments} || []);
-	}
+            my $comments = $properties->{comments};
+            if (ref $comments ne 'ARRAY') {
+                $comments = [];
+            }
+            $properties->{comments} = JSON->new->encode($comments);
+        }
 	if (exists $properties->{url}) {
 		$properties->{url} = $self->getParent->getUrl.'/'.$self->getTitle;
 	}

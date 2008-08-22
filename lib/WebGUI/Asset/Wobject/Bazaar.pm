@@ -77,7 +77,7 @@ sub definition {
 		assetName=>'Bazaar',
 		icon=>'assets.gif',
 		autoGenerateForms=>1,
-		tableName=>'Bazaar',
+		tableName=>'bazaar',
 		className=>'WebGUI::Asset::Wobject::Bazaar',
 		properties=>\%properties
 		});
@@ -280,7 +280,7 @@ sub view {
 	$out .= $self->formatShortList(
 		$self->getUrl('func=byFeatured'),
 		'Featured',
-		"select distinct assetId from bazaarItem where price > 0 order by revisionDate desc limit 10"
+		"select distinct assetId from bazaarItem where price > 0 and revisionDate > unix_timestamp() - 60*60*24*365*2 order by revisionDate desc limit 10"
 	);
 
 	# newest
@@ -295,20 +295,20 @@ sub view {
 	$out .= $self->formatShortList(
 		$self->getUrl('func=byDownloads'),
 		'Most Downloaded',
-		"select distinct assetId from bazaarItem order by downloads desc limit 10"
+		"select distinct assetId from bazaarItem where revisionDate > unix_timestamp() - 60*60*24*365*2 order by downloads desc limit 10"
 	);
 
 	# most highly rated
 	$out .= $self->formatShortList(
 		$self->getUrl('func=byRating'),
 		'Highly Rated',
-		"select distinct assetId from bazaarItem order by averageRating desc limit 10"
+		"select distinct assetId from bazaarItem where revisionDate > unix_timestamp() - 60*60*24*365*2 order by averageRating desc limit 10"
 	);
 	# most viewed
 	$out .= $self->formatShortList(
 		$self->getUrl('func=byViews'),
 		'Most Viewed',
-		"select distinct assetId from bazaarItem order by views desc limit 10"
+		"select distinct assetId from bazaarItem where revisionDate > unix_timestamp() - 60*60*24*365*2 order by views desc limit 10"
 	);
 
 	# most recently updated
@@ -341,14 +341,14 @@ sub www_byCreation {
 #-------------------------------------------------------------------
 sub www_byDownloads {
 	my $self = shift;
-	my $ids = $self->session->db->buildArrayRef("select distinct assetId from bazaarItem order by downloads desc");
+	my $ids = $self->session->db->buildArrayRef("select distinct assetId from bazaarItem where revisionDate > unix_timestamp() - 60*60*24*365*2 order by downloads desc");
 	return $self->formatList($ids,'Most Downloaded');
 }
 
 #-------------------------------------------------------------------
 sub www_byFeatured {
 	my $self = shift;
-	my $ids = $self->session->db->buildArrayRef("select distinct assetId from bazaarItem where price > 0 order by revisionDate desc limit 10");
+	my $ids = $self->session->db->buildArrayRef("select distinct assetId from bazaarItem where price > 0 and revisionDate > unix_timestamp() - 60*60*24*365*2 order by revisionDate desc");
 	return $self->formatList($ids,'Featured');
 }
 
@@ -363,7 +363,7 @@ sub www_byKeyword {
 #-------------------------------------------------------------------
 sub www_byRating {
 	my $self = shift;
-	my $ids = $self->session->db->buildArrayRef("select distinct assetId from bazaarItem order by averageRating desc");
+	my $ids = $self->session->db->buildArrayRef("select distinct assetId from bazaarItem where revisionDate > unix_timestamp() - 60*60*24*365*2 order by averageRating desc");
 	return $self->formatList($ids, 'Best Rated');
 }
 
@@ -377,7 +377,7 @@ sub www_byRecent {
 #-------------------------------------------------------------------
 sub www_byViews {
 	my $self = shift;
-	my $ids = $self->session->db->buildArrayRef("select distinct assetId from bazaarItem order by views desc");
+	my $ids = $self->session->db->buildArrayRef("select distinct assetId from bazaarItem where revisionDate > unix_timestamp() - 60*60*24*365*2 order by views desc");
 	return $self->formatList($ids,'Most Viewed');
 }
 
@@ -406,7 +406,6 @@ sub www_editSave {
     if ($className ne "WebGUI::Asset::Sku::BazaarItem" && $className ne "") {
 		return $self->getParent->www_view;
     }    
-	$self->session->log->warn('eee');
     return $self->SUPER::www_editSave(@_);
 }
 
