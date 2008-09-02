@@ -181,6 +181,11 @@ sub prepareView {
 	$self->SUPER::prepareView;
 	$self->session->style->setRawHeadTags(q{
 	<style type="text/css">
+        .bazaarKeywords {
+		border: 1px solid #bbbbbb;
+		padding: 30px;
+		margin-bottom: 20px;
+	}
 	.bazaarList {
 		width: 220px;
 		display: -moz-inline-box;  /* Moz */
@@ -276,6 +281,12 @@ sub view {
 	
 	$out .= $self->get('description');
 	
+	# keywords
+	$out .= q{<div class="bazaarKeywords">}.WebGUI::Keyword->new($self->session)->generateCloud({
+        startAsset=>$self,
+        displayFunc=>"byKeyword",
+        }).q{</div>};
+
 	# featured
 	$out .= $self->formatShortList(
 		$self->getUrl('func=byFeatured'),
@@ -317,12 +328,6 @@ sub view {
 		'Recently Updated',
 		"select distinct assetId from bazaarItem order by revisionDate desc limit 10"
 	);
-
-	# keywords
-	$out .= q{<fieldset class="bazaarList"><legend>Keywords</legend>}.WebGUI::Keyword->new($self->session)->generateCloud({
-        startAsset=>$self,
-        displayFunc=>"byKeyword",
-        }).q{</fieldset>};
 
 	# output
 	return $out;

@@ -695,7 +695,7 @@ sub processPropertiesFromFormPost {
 	unless ($user->isInGroup(3)) {
 		my %vendorInfo = (
 			preferredPaymentType	=> $form->get('vendorPaymentMethod','selectBox','PayPal'),
-			name					=> $form->get('vendorName','text'),
+			name					=> $form->get('vendorName','text') || $user->username,
 			url						=> $form->get('vendorUrl','url'),
 			paymentInformation		=> $form->get('vendorPaymentInformation','textarea'),
 			userId					=> $user->userId,
@@ -759,7 +759,10 @@ sub update {
 	if (exists $properties->{comments}) {
             my $comments = $properties->{comments};
             if (ref $comments ne 'ARRAY') {
-                $comments = [];
+                $comments = eval{JSON->new->decode($comments)};
+                if (WebGUI::Error->caught) {
+                  $comments = [];
+		}
             }
             $properties->{comments} = JSON->new->encode($comments);
         }
