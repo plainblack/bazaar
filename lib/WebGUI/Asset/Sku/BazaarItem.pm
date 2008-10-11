@@ -16,20 +16,19 @@ package WebGUI::Asset::Sku::BazaarItem;
 
 use strict;
 use Tie::IxHash;
-use base 'WebGUI::Asset::Sku';
+use Class::C3;
+use base qw(WebGUI::AssetAspect::Comments WebGUI::Asset::Sku);
 use JSON;
 use WebGUI::Asset::Template;
 use WebGUI::Exception;
 use WebGUI::Form;
 use WebGUI::Group;
-use WebGUI::HTML;
 use WebGUI::Keyword;
 use WebGUI::Macro;
 use WebGUI::Shop::Vendor;
 use WebGUI::Storage;
 use WebGUI::Storage::Image;
 use WebGUI::User;
-use WebGUI::Utility;
 
 
 =head1 NAME
@@ -54,7 +53,7 @@ These methods are available from this class:
 sub canAdd {
 	my $class = shift;
 	my $session = shift;
-	return $class->SUPER::canAdd($session, undef, '7');
+	return $class->next::method($session, undef, '7');
 }
 
 #-------------------------------------------------------------------
@@ -69,7 +68,7 @@ sub canDownload {
 sub canEdit {
 	my $self = shift;
 	my $form = $self->session->form;
-	return $self->SUPER::canEdit  # account for normal editing
+	return $self->next::method  # account for normal editing
 		|| $self->getParent->canEdit; # account for admins
 }
 
@@ -199,16 +198,6 @@ sub definition {
 			fieldType       => "hidden",
 			defaultValue    => undef,
 			},
-		comments => {
-			noFormPost		=> 1,
-			fieldType       => "hidden",
-			defaultValue    => [],
-			},
-		averageRating => {
-			noFormPost		=> 1,
-			fieldType       => "hidden",
-			defaultValue    => 0,
-			},
 		views => {
 			noFormPost		=> 1,
 			fieldType       => "hidden",
@@ -228,19 +217,9 @@ sub definition {
 		className           => 'WebGUI::Asset::Sku::BazaarItem',
 		properties          => \%properties
 	    });
-	return $class->SUPER::definition($session, $definition);
+	return $class->next::method($session, $definition);
 }
 
-
-#-------------------------------------------------------------------
-sub get {
-	my $self = shift;
-	my $param = shift;
-	if ($param eq 'comments') {
-		return JSON->new->decode($self->SUPER::get('comments')||'[]');
-	}
-	return $self->SUPER::get($param, @_);
-}
 
 #-------------------------------------------------------------------
 sub getAutoCommitWorkflowId {
@@ -373,7 +352,7 @@ sub getEditForm {
 
 	# vendor info
 	$f->fieldSetStart('Vendor Information');
-	if ($session->user->isInGroup(3)) {
+	if ($session->user->isAdmin) {
 		$f->vendor(
 			label	=> 'Vendor',
 			name	=> 'vendorId',
@@ -533,7 +512,7 @@ sub getThumbnailUrl {
 #-------------------------------------------------------------------
 sub indexContent {
 	my $self = shift;
-	my $indexer = $self->SUPER::indexContent;
+	my $indexer = $self->next::method;
 	$indexer->addKeywords($self->get("releaseNotes"));
 	$indexer->addKeywords($self->get("requirements"));
 }
@@ -542,6 +521,13 @@ sub indexContent {
 sub isSubscribed {
 	my $self = shift;
 	return $self->session->user->isInGroup($self->getSubscriptionGroup->getId);
+}
+
+#-------------------------------------------------------------------
+sub leaveComment {
+	my $self = shift;
+	$self->next::method(@_);
+	$self->notifySubscribers($_[0]);
 }
 
 #-------------------------------------------------------------------
@@ -576,16 +562,6 @@ sub notifySubscribers {
 	$mail->addFooter;
 	$mail->queue;
 }
-
-#-------------------------------------------------------------------
-sub notifySubscribersAboutComment {
-	my $self = shift;
-	$self->notifySubscribers(
-		$self->getTitle .' has been updated to version '.$self->get('versionNumber').'.',
-		$self->getTitle . ' Updated',
-		);
-}
-
 
 #-------------------------------------------------------------------
 
@@ -624,7 +600,7 @@ sub onRefund {
 #-------------------------------------------------------------------
 sub prepareView {
 	my $self = shift;
-	$self->SUPER::prepareView;
+	$self->next::method;
 	$self->session->style->setLink(
 		$self->session->url->extras("yui/build/grids/grids-min.css"),
 		{rel=>'stylesheet', type=>"text/css"}
@@ -641,6 +617,9 @@ sub prepareView {
 		color: #555555;
 		font-size: 10px;
 		margin-left: 10px;
+	}
+	.assetAspectComment {
+		margin-bottom: 15px;
 	}
 	.thumbpic {
 		z-index: 0;
@@ -684,7 +663,7 @@ sub prepareView {
 sub processPropertiesFromFormPost {
 	my $self = shift;
 	my $oldVersion = $self->get('versionNumber');
-	$self->SUPER::processPropertiesFromFormPost(@_);
+	$self->next::method(@_);
 	my $session = $self->session;
 	my $form = $session->form;
 	my $user = $session->user;
@@ -692,10 +671,10 @@ sub processPropertiesFromFormPost {
 	if ($self->get('ownerUserId') eq '3') {
 		$properties->{ownerUserId} = $user->userId;
 	}
-	unless ($user->isInGroup(3)) {
+	unless ($user->isAdmin) {
 		my %vendorInfo = (
 			preferredPaymentType	=> $form->get('vendorPaymentMethod','selectBox','PayPal'),
-			name					=> $form->get('vendorName','text') || $user->username,
+			name					=> $form->get('vendorName','text', $user->username),
 			url						=> $form->get('vendorUrl','url'),
 			paymentInformation		=> $form->get('vendorPaymentInformation','textarea'),
 			userId					=> $user->userId,
@@ -732,7 +711,7 @@ sub purge {
 	foreach my $s ($self->getProductStorage, $self->getScreenStorage) {
 		$s->delete;	
 	}
-	$self->SUPER::purge(@_);
+	$self->next::method(@_);
 }
 
 #-------------------------------------------------------------------
@@ -756,16 +735,6 @@ sub toggleSubscription {
 sub update {
 	my $self = shift;
 	my $properties = shift;
-	if (exists $properties->{comments}) {
-            my $comments = $properties->{comments};
-            if (ref $comments ne 'ARRAY') {
-                $comments = eval{JSON->new->decode($comments)};
-                if (WebGUI::Error->caught) {
-                  $comments = [];
-		}
-            }
-            $properties->{comments} = JSON->new->encode($comments);
-        }
 	if (exists $properties->{url}) {
 		$properties->{url} = $self->getParent->getUrl.'/'.$self->getTitle;
 	}
@@ -783,7 +752,7 @@ sub update {
 	if (exists $properties->{requirements}) {
 		WebGUI::Macro::negate(\$properties->{requirements});
 	}
-	$self->SUPER::update($properties, @_);
+	$self->next::method($properties, @_);
 }
 
 #-------------------------------------------------------------------
@@ -826,21 +795,7 @@ sub view {
 	}
 	
 	# comments
-	$out .= q{<fieldset><legend>Comments</legend>};
-	my $comments = $self->get('comments');
-	foreach my $comment (@$comments) {
-		$out .= q{<p><img src="}.$session->url->extras('wobject/Bazaar/rating/'.$comment->{rating}.'.png').q{" alt="}.$comment->{rating}.q{" style="vertical-align: bottom;" />};
-		$out .= q{<b>}.$comment->{alias}.q{ said:</b> "}.WebGUI::HTML::format($comment->{comment},'text').q{"</p>};
-	}
-	unless ($self->session->user->userId eq '1') {
-		$out .= WebGUI::Form::formHeader($session, {action=>$self->getUrl});
-		$out .= WebGUI::Form::hidden($session, {name=>"func",value=>"leaveComment"});
-		$out .= WebGUI::Form::textarea($session, {name=>"comment"});
-		$out .= WebGUI::Form::commentRating($session, {name=>"rating"});
-		$out .= WebGUI::Form::submit($session);
-		$out .= WebGUI::Form::formFooter($session);
-	}
-	$out .= q{</fieldset>};
+	$out .= q{<fieldset><legend>Comments</legend>}.$self->getFormattedComments().q{</fieldset>};
 
 	### end main
 	$out .= q{</div></div></div><div class="yui-b">};
@@ -913,13 +868,13 @@ sub view {
 	$out .= q{<fieldset><legend>Statistics</legend>
 		<b>Downloads:</b> }.$self->get('downloads').q{<br />
 		<b>Views:</b> }.$self->get('views').q{<br />
-		<b>Rating:</b> <img src="}.$session->url->extras('wobject/Bazaar/rating/'.round($self->get('averageRating'),0).'.png').q{" style="vertical-align: middle;" alt="}.$self->get('averageRating').q{" /><br />
+		<b>Rating:</b> }.$self->getAverageCommentRatingIcon.q{<br />
 		<b>Updated:</b> }.$datetime->epochToHuman($self->get('revisionDate'),'%z').q{<br />
 		</fieldset>
 	};
 	
 	# subscription
-	unless ($self->session->user->userId eq '1') {
+	unless ($self->session->user->isVisitor) {
 		$out .= q{<fieldset><legend>Notifications</legend><a href="}.$self->getUrl('func=toggleSubscription').q{">};
 		if ($self->isSubscribed) {
 			$out .= q{Unsubscribe};
@@ -1011,49 +966,10 @@ sub www_edit {
 }
 
 #-------------------------------------------------------------------
-sub www_leaveComment {
-	my $self = shift;
-	my $comment = $self->session->form->get('comment','textarea');
-	WebGUI::Macro::negate(\$comment);
-	my $user = $self->session->user;
-	my $rating = $self->session->form->get('rating','commentRating');
-	if (
-		$user->userId ne '1'
-		&& $rating > 0
-		&& $comment ne ''
-		) {
-
-		my $comments = $self->get('comments');
-		push @$comments, {
-			alias		=> $user->profileField('alias'),
-			userId		=> $user->userId,
-			comment		=> $comment,
-			rating		=> $rating,
-			date		=> time(),
-			ip			=> $self->session->var->get('lastIP'),
-			};
-		my $sum = 0;
-		my $count = 0;
-		foreach my $comment (@$comments) {
-			$count++;
-			$sum += $comment->{rating};
-		}
-		$self->update({comments=>$comments, averageRating=>$sum/$count});
-		$user->karma(3, $self->getId, 'Left comment for Bazaar Item '.$self->getTitle);
-	}
-	$self->notifySubscribers(
-		$self->session->user->profileField('alias') .' said:<br /> '.WebGUI::HTML::format($comment,'text'),
-		$self->getTitle . ' Comment',
-		$user->profileField('email')
-		);
-	$self->www_view;
-}
-
-#-------------------------------------------------------------------
 sub www_toggleSubscription {
 	my $self = shift;
-	return $self->session->privilege->insufficient if ($self->session->user->userId eq '1');
-	unless ($self->session->user->userId eq '1') {
+	return $self->session->privilege->insufficient if ($self->session->user->isVisitor);
+	unless ($self->session->user->isVisitor) {
 		$self->toggleSubscription;
 	}
 	return $self->www_view;

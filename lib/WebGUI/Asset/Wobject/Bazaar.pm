@@ -129,7 +129,7 @@ sub formatList {
 	foreach my $id (@$assetIds) {
 		my $asset = WebGUI::Asset::Sku::BazaarItem->new($session, $id);
 		if (defined $asset) {
-			$out .= q{<p style="clear: both;"><img src="}.$self->session->url->extras('wobject/Bazaar/rating/'.round($asset->get('averageRating'),0).'.png').q{" style="float: left;" alt="}.$asset->get('averageRating').q{" />};
+			$out .= q{<p style="clear: both;">}.$asset->getAverageCommentRatingIcon;
 			
 			my $screens = $asset->getScreenStorage;
 			my $firstScreen = $screens->getFiles->[0];
@@ -313,7 +313,7 @@ sub view {
 	$out .= $self->formatShortList(
 		$self->getUrl('func=byRating'),
 		'Highly Rated',
-		"select distinct assetId from bazaarItem where revisionDate > unix_timestamp() - 60*60*24*365*2 order by averageRating desc limit 10"
+		"select distinct assetId from bazaarItem left join assetAspectComments using (assetId,revisionDate) where revisionDate > unix_timestamp() - 60*60*24*365*2 order by averageCommentRating desc limit 10"
 	);
 	# most viewed
 	$out .= $self->formatShortList(
@@ -368,7 +368,7 @@ sub www_byKeyword {
 #-------------------------------------------------------------------
 sub www_byRating {
 	my $self = shift;
-	my $ids = $self->session->db->buildArrayRef("select distinct assetId from bazaarItem where revisionDate > unix_timestamp() - 60*60*24*365*2 order by averageRating desc");
+	my $ids = $self->session->db->buildArrayRef("select distinct assetId from bazaarItem left join assetAspectComments using (assetId,revisionDate) where revisionDate > unix_timestamp() - 60*60*24*365*2 order by averageCommentRating desc");
 	return $self->formatList($ids, 'Best Rated');
 }
 
