@@ -220,6 +220,19 @@ sub definition {
 	return $class->next::method($session, $definition);
 }
 
+#-------------------------------------------------------------------
+sub getAddToCartForm {
+    my $self    = shift;
+    my $session = $self->session;
+
+    my $form = 
+        WebGUI::Form::formHeader($session,  { action    => $self->getUrl                    } )
+        . WebGUI::Form::hidden($session,    { name      => 'func',          value => 'buy'  } )
+        . WebGUI::Form::submit($session,    { value     => 'Add to Cart'                    } )
+        . WebGUI::Form::formFooter($session);
+
+    return $form;
+}
 
 #-------------------------------------------------------------------
 sub getAutoCommitWorkflowId {
@@ -416,6 +429,28 @@ sub getEditForm {
 }
 
 #-------------------------------------------------------------------
+sub getKeywordLoopVars {
+    my $self    = shift;
+    my $session = $self->session;
+    my $bazaar  = $self->getParent; 
+
+	my $keywords = WebGUI::Keyword->new( $session )->getKeywordsForAsset( {
+        asset		=> $self,
+        asArrayRef	=> 1,
+    } );
+
+    my @keywordLoop;
+    foreach my $word ( @{ $keywords } ) {
+        push @keywordLoop, {
+            keyword_word        => $word,
+            keyword_searchUrl   => $bazaar->getUrl( "func=byKeyword;keyword=" . $word ),
+        }
+    }
+
+    return \@keywordLoop;
+}
+
+#-------------------------------------------------------------------
 
 sub getMaxAllowedInCart {
 	my $self = shift;
@@ -437,6 +472,24 @@ sub getPrice {
 }
 
 #-------------------------------------------------------------------
+sub getProductLoopVars {
+    my $self    = shift;
+    my $storage = $self->getProductStorage;
+
+    my @productFiles;
+    foreach my $file ( @{ $storage->getFiles } ) {
+        push @productFiles, {
+            product_icon        => $storage->getFileIconUrl( $file ),
+            product_filename    => $file,
+            product_downloadUrl => $self->getUrl( 'func=download;filename=' . $file ),
+            product_url         => $storage->getUrl( $file ),
+        };
+    }
+
+    return \@productFiles;
+}
+
+#-------------------------------------------------------------------
 sub getProductStorage {
 	my $self = shift;
 	unless (exists $self->{_productStorage}) {
@@ -454,6 +507,22 @@ sub getProductStorage {
 			);
 	}
 	return $self->{_productStorage};
+}
+
+#-------------------------------------------------------------------
+sub getScreenLoopVars {
+    my $self    = shift;
+    my $storage = $self->getScreenStorage;
+
+    my @screenFiles;
+    foreach my $file ( @{ $storage->getFiles } ) {
+        push @screenFiles, {
+            screen_url          => $storage->getUrl( $file ),
+            screen_thumbnailUrl => $storage->getThumbnailUrl( $file ),
+        };
+    }
+
+    return \@screenFiles;
 }
 
 #-------------------------------------------------------------------
@@ -507,6 +576,64 @@ sub getThumbnailUrl {
 		return $screens->getThumbnailUrl($file);
 	}
 	return undef;
+}
+
+#-------------------------------------------------------------------
+sub getViewVars {
+    my $self        = shift;
+    my $session     = $self->session;
+    my $datetime    = $session->datetime;
+    my $bazaar      = $self->getParent;
+
+    # Fetch asset properties
+    my $vars    = $self->get;
+
+    # Fetch vendor information
+    my $vendor      = WebGUI::Shop::Vendor->new( $session, $self->get('vendorId') );
+    unless (WebGUI::Error->caught || $vendor->get('name') eq 'Default Vendor') {
+        my $vendorInfo  = $vendor->get;
+        foreach my $key (keys %{ $vendorInfo }) {
+            $vars->{ "vendor_$key"    } = $vendorInfo->{ $key };
+        }
+    }
+
+    $vars->{ title                  } = $self->getTitle;
+    $vars->{ canDownload            } = $self->canDownload;
+    $vars->{ releaseDate            } = 
+        $datetime->epochToHuman( 
+            $datetime->setToEpoch( $self->get('releaseDate') ), 
+            '%z' 
+        );
+    $vars->{ productFiles_loop      } = $self->getProductLoopVars;
+    $vars->{ screenFiles_loop       } = $self->getScreenLoopVars;
+    $vars->{ price                  } = sprintf '%.2f', $self->getPrice;
+    $vars->{ hasPrice               } = $self->getPrice > 0;
+    $vars->{ isInCart               } = $self->{ _hasAddedToCart };
+    $vars->{ addToCart_form         } = $self->getAddToCartForm;
+
+    $vars->{ rating                 } = $self->getAverageCommentRatingIcon;
+    $vars->{ lastUpdated            } = $datetime->epochToHuman( $self->get('revisionDate'), '%z' );
+
+    $vars->{ comments               } = $self->getFormattedComments;
+
+    # subscription
+    $vars->{ isVisitor              } = $session->user->userId eq 1;
+    $vars->{ isSubScribed           } = $self->isSubscribed;
+    $vars->{ subscriptionToggleUrl  } = $self->getUrl( 'func=toggleSubscription' );
+
+    # keywords
+    $vars->{ keyword_loop           } = $self->getKeywordLoop;
+   
+    # management
+    $vars->{ canEdit                } = $self->canEdit;
+    $vars->{ delete_url             } = $self->getUrl( 'func=delete' );
+    $vars->{ edit_url               } = $self->getUrl( 'func=edit' );
+
+    # navigation
+    $vars->{ search_byVendorUrl     } = $bazaar->getUrl( 'func=byVendor;vendorId=' . $vars->{ 'vendor_vendorId' } );
+    $vars->{ bazaar_url             } = $bazaar->getUrl;
+
+    return $vars;
 }
 
 #-------------------------------------------------------------------
@@ -599,63 +726,20 @@ sub onRefund {
 
 #-------------------------------------------------------------------
 sub prepareView {
-	my $self = shift;
+	my $self    = shift;
+    my $session = $self->session;
+	my $bazaar  = $self->getParent;
+
 	$self->next::method;
+
 	$self->session->style->setLink(
 		$self->session->url->extras("yui/build/grids/grids-min.css"),
-		{rel=>'stylesheet', type=>"text/css"}
-		);
-	$self->session->style->setRawHeadTags(q{
-	<style type="text/css">
-	fieldset {
-		border: 1px solid #bbbbbb;
-		padding: 5px;
-		margin: 0;
-		margin-bottom: 10px;
-	}
-	legend {
-		color: #555555;
-		font-size: 10px;
-		margin-left: 10px;
-	}
-	.assetAspectComment {
-		margin-bottom: 15px;
-	}
-	.thumbpic {
-		z-index: 0;
-	}
+		{ rel => 'stylesheet', type => "text/css" }
+	);
 
-	.thumbpic:hover {
-		background-color: transparent;
-		z-index: 50;
-	}
-
-	.thumbpic span {
-		position: absolute;
-		background-color: black;
-		padding: 5px;
-		left: -1000px;
-		border: 1px dashed gray;
-		visibility: hidden;
-		color: black;
-		text-decoration: none;
-	}
-
-	.thumbpic span img { 
-		border-width: 0;
-		padding: 2px;
-		max-height: 480px;
-		max-width: 640px;
-	}
-
-	.thumbpic:hover span { 
-		left: -650px;
-		top: 0;
-		visibility: visible;
-		z-index: 5000;
-	}		
-</style>							   
-		});
+    my $template = WebGUI::Asset::Template->new( $session, $bazaar->getValue('bazaarItemTemplateId') );
+    $template->prepare;
+    $self->{_viewTemplate} = $template;
 }
 
 
@@ -770,149 +854,10 @@ Displays the product.
 =cut
 
 sub view {
-    my ($self) = @_;
-    my $session = $self->session;
-	my $bazaar = $self->getParent;
-	my $datetime = $session->datetime;
-	my $out = '';
-	if ($session->var->isAdminOn) {
-		$out .= q{<p>}.$self->getToolbar.q{</p>};
-	}
-	$out .= q{<div id="doc3" class="yui-t5"><div id="hd"><h3>}.$self->getTitle.q{</h3></div><div id="bd"><div id="yui-main"><div class="yui-b"><div class="yui-g">};
-	### start main
-	
-	# description
-	$out .= q{<p>}.$self->get('description').q{</p>};
-	
-	# requirements
-	if ($self->get('requirements')) {
-		$out .= q{<fieldset><legend>System Requirements</legend>}.$self->get('requirements').q{</fieldset>};
-	}
-	
-	# release notes
-	if ($self->get('releaseNotes')) {
-		$out .= q{<fieldset><legend>Release Notes for Version }.$self->get('versionNumber').q{ (}.$datetime->epochToHuman($datetime->setToEpoch($self->get('releaseDate')),'%z').q{)</legend>}.$self->get('releaseNotes').q{</fieldset>};
-	}
-	
-	# comments
-	$out .= q{<fieldset><legend>Comments</legend>}.$self->getFormattedComments().q{</fieldset>};
+    my $self = shift;
 
-	### end main
-	$out .= q{</div></div></div><div class="yui-b">};
-	### start sidebar
-	
-	# buy / download
-	$out .= q{<fieldset>};
-	if ($self->canDownload) {
-		$out .= q{<legend>Download</legend>};
-		my $storage = $self->getProductStorage;
-		foreach my $file (@{$storage->getFiles}) {
-			$out .= q{<img src="}.$storage->getFileIconUrl($file).q{" alt="}.$file.q{" style="vertical-align: middle;" /> <a href="}.$self->getUrl('func=download;filename='.$file).q{">}.$file.q{</a><br />};
-		}
-	}
-	elsif ($self->getPrice > 0) {
-		$out .= q{<legend>Purchase</legend>};
-		if ($self->{_hasAddedToCart}) {
-			$out .= $self->getTitle.q{ has been added to your cart. ^ViewCart;};
-		}
-		$out .= q{<p><b>}.sprintf("%.2f", $self->getPrice).q{</b><br />};
-		$out .= WebGUI::Form::formHeader($session, {action=>$self->getUrl});
-		$out .= WebGUI::Form::hidden($session, {name=>'func', value=>'buy'});
-		$out .= WebGUI::Form::submit($session, {value=>'Add to Cart'});
-		$out .= WebGUI::Form::formFooter($session);
-		$out .= q{</p>};
-	}
-	else {
-		$out .= q{<b>You don't have permission to download this.</b>};
-	}
-	$out .= q{</fieldset>};
-		
-	# links
-	my $vendorInfo = {};
-	my $vendor = WebGUI::Shop::Vendor->new($session, $self->get('vendorId'));
-	unless (WebGUI::Error->caught) {
-		unless ($vendor->get('name') eq 'Default Vendor') {
-			$vendorInfo = $vendor->get;
-		}
-	}
-	$out .= q{<fieldset><legend>Links</legend>};
-	if ($vendorInfo->{url} ne '' && $vendorInfo->{name} ne '') {
-		$out .= q{<a href="}.$vendorInfo->{url}.q{">}.$vendorInfo->{name}.q{</a><br />};
-	}
-	if ($self->get('demoUrl') ne '') {
-		$out .= q{<a href="}.$self->get('demoUrl').q{">Demo</a><br />};
-	}
-	if ($self->get('moreInfoUrl') ne '') {
-		$out .= q{<a href="}.$self->get('moreInfoUrl').q{">More Information</a><br />};
-	}
-	if ($self->get('supportUrl') ne '') {
-		$out .= q{<a href="}.$self->get('supportUrl').q{">Support</a><br />};
-	}
-	else {
-		$out .= '<b>No Support Offered</b><br />';
-	}
-	$out .= q{</fieldset>};
-
-	# screen shots
-	my $screens = $self->getScreenStorage;
-	my $files = $screens->getFiles;
-	if (scalar(@$files)) {
-		$out .= q{<fieldset><legend>Screenshots</legend>};
-		foreach my $image (@{$screens->getFiles}) {
-			$out .= q{<a class="thumbpic" href="}.$screens->getUrl($image).q{"><img src="}.$screens->getThumbnailUrl($image).q{" alt="}.$image.q{" class="thumbnail" /><span><img src="}.$screens->getUrl($image).q{" /></span></a> };
-		}
-		$out .= q{</fieldset>};
-	}
-	
-	# stats
-	$out .= q{<fieldset><legend>Statistics</legend>
-		<b>Downloads:</b> }.$self->get('downloads').q{<br />
-		<b>Views:</b> }.$self->get('views').q{<br />
-		<b>Rating:</b> }.$self->getAverageCommentRatingIcon.q{<br />
-		<b>Updated:</b> }.$datetime->epochToHuman($self->get('revisionDate'),'%z').q{<br />
-		</fieldset>
-	};
-	
-	# subscription
-	unless ($self->session->user->isVisitor) {
-		$out .= q{<fieldset><legend>Notifications</legend><a href="}.$self->getUrl('func=toggleSubscription').q{">};
-		if ($self->isSubscribed) {
-			$out .= q{Unsubscribe};
-		}
-		else {
-			$out .= q{Subscribe};
-		}
-		$out .= q{</a></fieldset>};
-	}
-	
-	# keywords
-	$out .= q{<fieldset><legend>Keywords</legend> };
-	my $keywords = WebGUI::Keyword->new($self->session)->getKeywordsForAsset({
-        asset		=> $self,
-        asArrayRef	=> 1,
-        });
-    foreach my $word (@{$keywords}) {
-		$out .= q{<a href="}.$bazaar->getUrl("func=byKeyword;keyword=".$word).q{">}.$word.q{</a> };
-    }
-	$out .= q{</fieldset>};
-
-	# management
-	if ($self->canEdit ) {
-		$out .= q{<fieldset><legend>Management</legend><a href="}.$self->getUrl("func=delete").q{">Delete</a> / <a href="}.$self->getUrl("func=edit").q{">Edit</a></fieldset>};
-	}
-	
-	# navigation
-	$out .= q{<fieldset><legend>Navigation</legend>};
-	if ($vendorInfo->{name} ne '') {
-		$out .= q{<a href="}.$bazaar->getUrl('func=byVendor;vendorId='.$vendorInfo->{vendorId}).q{">More from }.$vendorInfo->{name}.q{</a><br />};
-	}
-	$out .= q{<a href="}.$self->getParent->getUrl.q{">Back to the Bazaar</a><br /></fieldset>};
-
-	### end sidebar
-	$out .= q{</div></div><div id="ft"></div></div>};
-	
-	$self->update({views=>$self->get('views') + 1});
-	return $out;
+    my $template = $self->{ _viewTemplate };
+    return $template->process( $self->getViewVars );
 }
 
 #-------------------------------------------------------------------

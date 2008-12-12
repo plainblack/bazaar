@@ -18,8 +18,11 @@ create table bazaarItem (
 	averageRating float,
 	views int not null default 0,
 	downloads int not null default 0,
+    templateId char(22) binary not null default 'vhNlRmwdrZivIk1IzEpvYQ',
+    bazaarItemTemplateId char(22) binary not null default 'VlkZo8ew56Yns_6WMIU8BQ',
 	primary key (assetId, revisionDate)
 );
+
 create table bazaar (
 	assetId varchar(22) binary not null,
 	revisionDate bigint not null,

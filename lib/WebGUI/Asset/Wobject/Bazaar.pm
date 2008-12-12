@@ -65,13 +65,27 @@ sub definition {
 			defaultValue    => 2,
 			label			=> "Group To Upload",
 			tab				=> "security",
-			},
+        },
 		listLimit => {
 			fieldType		=> "integer",
 			defaultValue	=> 50,
 			label			=> "List Limit",
 			tab				=> "display",
-			},
+		},
+        templateId => {
+            fieldType       => 'template',
+            defaultValue    => 'vhNlRmwdrZivIk1IzEpvYQ',
+            label           => 'Bazaar template',
+            tab             => 'display',
+            namespace       => 'Bazaar',
+        },
+        bazaarItemTemplateId => {
+            fieldType       => 'template',
+            defaultValue    => 'VlkZo8ew56Yns_6WMIU8BQ',
+            label           => 'Bazaar Item template',
+            tab             => 'display',
+            namespace       => 'BazaarItem',
+        }
 	);
 	push(@{$definition}, {
 		assetName=>'Bazaar',
@@ -145,116 +159,245 @@ sub formatList {
 	return $self->processStyle($out);
 }
 
+
 #-------------------------------------------------------------------
-sub formatShortList {
-	my ($self, $url, $title, $query, $params) = @_;
-	my $out = q{<fieldset class="bazaarList"><legend><a href="}.$url.q{">}.$title.q{ &raquo;</a></legend>};
-	my $session = $self->session;
-	my $revisions = $self->session->db->read($query, $params);
-	my $first = 1;
-    while (my ($id) = $revisions->array) {
-		my $asset = WebGUI::Asset::Sku::BazaarItem->new($session, $id);
-		if (defined $asset) {
-			if ($first) {
-				$out .= q{<div class="firstBazaarItem">};
-				my $screens = $asset->getScreenStorage;
-				my $firstScreen = $screens->getFiles->[0];
-				if ($firstScreen ne "") {
-					$out .= q{<a class="thumbpic" href="}.$asset->getUrl.q{"><img src="}.$screens->getThumbnailUrl($firstScreen).q{" alt="}.$firstScreen.q{" class="thumbnail" /><span><img src="}.$screens->getUrl($firstScreen).q{" /></span></a>};
-				}
-				$out .= q{<a href="}.$asset->getUrl.q{">}.$asset->getTitle.q{</a> - }.$asset->get('synopsis').q{<br />};
-				$out .= q{</div><ul>};
-				$first = 0;
-			}
-			else {
-				$out .= q{<li>&#187;<a href="}.$asset->getUrl.q{">}.$asset->getTitle.q{</a></li>};
-			}
-		}
-	}
-	$out .= q{</ul></fieldset>};
-	return $out;
+sub getByCreationShortListVars {
+    my $self = shift;
+
+    my $assets = $self->getLineage( ['descendants'], { 
+        isa             => 'WebGUI::Asset::Sku::BazaarItem',
+#        joinClass       => 'WebGUI::Asset::Sku::BazaarItem',
+#        whereClause     => "price > 0 and revisionDate > $twoYearsBack",
+        orderByClause   => 'creationDate desc',
+        limit           => 10,
+    } );
+
+    return $self->generateShortListLoop( $assets );
 }
+
+#-------------------------------------------------------------------
+sub getByDownloadsShortListVars {
+    my $self    = shift;
+    my $twoYearsBack    = time - 60*60*24*365*2;
+
+    my $assets = $self->getLineage( ['descendants'], { 
+        isa             => 'WebGUI::Asset::Sku::BazaarItem',
+        joinClass       => 'WebGUI::Asset::Sku::BazaarItem',
+        whereClause     => "assetData.revisionDate > $twoYearsBack",
+        orderByClause   => 'downloads desc',
+        limit           => 10,
+    } );
+
+    return $self->generateShortListLoop( $assets );
+}
+
+#-------------------------------------------------------------------
+sub getByFeaturedShortListVars {
+    my $self    = shift;
+    my $twoYearsBack    = time - 60*60*24*365*2;
+
+    my $assets = $self->getLineage( ['descendants'], { 
+        isa             => 'WebGUI::Asset::Sku::BazaarItem',
+        joinClass       => 'WebGUI::Asset::Sku::BazaarItem',
+        whereClause     => "price > 0 and assetData.revisionDate > $twoYearsBack",
+        orderByClause   => 'assetData.revisionDate desc',
+        limit           => 10,
+    } );
+
+    return $self->generateShortListLoop( $assets );
+}
+
+#-------------------------------------------------------------------
+sub getByRatingShortListVars {
+    my $self = shift;
+    my $twoYearsBack = time - 60*60*24*365*2;
+
+#### This unfortunately doesn't works since you cannot instanciate Aspects on their own.
+#    my $assets = $self->getLineage( ['descendants'], { 
+#        isa             => 'WebGUI::Asset::Sku::BazaarItem',
+#        joinClass       => 'WebGUI::AssetAspect::Comments',
+#        whereClause     => "assetData.revisionDate > $twoYearsBack",
+#        orderByClause   => 'averageCommentRating desc',
+#        limit           => 10,
+#    } );
+
+    my $assets = $self->session->db->buildArrayRef( 
+        'select distinct assetId from asset left join assetAspectComments using (assetId) '
+        ." where revisionDate > $twoYearsBack and parentId=? order by averageCommentRating desc limit 10 ",
+        [
+            $self->getId,
+        ]
+    );
+
+    return $self->generateShortListLoop( $assets );
+}
+
+#-------------------------------------------------------------------
+sub getByRecentShortListVars {
+    my $self = shift;
+
+    my $assets = $self->getLineage( ['descendants'], { 
+        isa             => 'WebGUI::Asset::Sku::BazaarItem',
+#        joinClass       => 'WebGUI::Asset::Sku::BazaarItem',
+#        whereClause     => "price > 0 and revisionDate > $twoYearsBack",
+        orderByClause   => 'assetData.revisionDate desc',
+        limit           => 10,
+    } );
+
+    return $self->generateShortListLoop( $assets );
+}
+
+#-------------------------------------------------------------------
+sub getByViewsShortListVars {
+    my $self    = shift;
+    my $twoYearsBack    = time - 60*60*24*365*2;
+
+    my $assets = $self->getLineage( ['descendants'], { 
+        isa             => 'WebGUI::Asset::Sku::BazaarItem',
+        joinClass       => 'WebGUI::Asset::Sku::BazaarItem',
+        whereClause     => "assetData.revisionDate > $twoYearsBack",
+        orderByClause   => 'views desc',
+        limit           => 10,
+    } );
+
+    return $self->generateShortListLoop( $assets );
+}
+
+#-------------------------------------------------------------------
+sub generateShortListLoop {
+    my $self        = shift;
+    my $assetIds    = shift || [];
+    
+    my $session     = $self->session;
+
+    my @shortList;
+    foreach my $assetId ( @{ $assetIds } ) {
+        my $asset   = WebGUI::Asset->newByDynamicClass( $session, $assetId );
+
+        # Skip assets we can't instanciate
+        next unless defined $asset;
+
+        # Fetch preview screens
+        my (@previewImagesLoop, @previewFilesLoop);
+
+        my $screens = $asset->getScreenStorage;
+        foreach my $filename ( @{ $screens->getFiles } ) {
+            my $screenProperties = {
+                screen_filename     => $filename,
+                screen_url          => $screens->getUrl( $filename ),
+                screen_isImage      => $screens->isImage( $filename ),
+                screen_thumbnailUrl => $screens->getThumbnailUrl( $filename ),
+            };
+    
+            if ( $screenProperties->{ screen_isImage } ) {
+                push @previewImagesLoop, $screenProperties;
+            }
+            else {
+                push @previewFilesLoop, $screenProperties;
+            }
+        }
+
+        my $itemProperties = $asset->get;
+        my %item = map { ("item_$_" => $itemProperties->{ $_ }) } keys %{ $itemProperties };
+        $item{ item_title               } = $asset->getTitle;
+        $item{ item_url                 } = $asset->getUrl;
+        $item{ item_previewImages_loop  } = \@previewImagesLoop;
+        $item{ item_previewFiles_loop   } = \@previewFilesLoop;
+
+        push @shortList, \%item;
+    }
+
+    return \@shortList;
+}
+
+#-------------------------------------------------------------------
+sub getViewVars {
+	my $self = shift;
+	my $session = $self->session;	
+
+    # Fetch asset properties
+    my $vars = $self->get;
+
+    # controls
+    $vars->{ adminOn        } = $session->var->isAdminOn;
+    $vars->{ controls       } = $self->getToolbar;
+    $vars->{ canUpload      } = $self->canUpload;
+    $vars->{ upload_url     } = $self->getUrl('func=add;class=WebGUI::Asset::Sku::BazaarItem');
+	
+	# keywords
+	$vars->{ keywords       } = WebGUI::Keyword->new( $session )->generateCloud( {
+        startAsset  => $self,
+        displayFunc => 'byKeyword',
+    } );
+
+	# featured
+    $vars->{ byFeatured_url                   } = $self->getUrl('func=byFeatured');
+    $vars->{ byFeatured_shortList_loop        } = $self->getByFeaturedShortListVars; 
+
+	# newest
+    $vars->{ byCreation_url                   } = $self->getUrl('func=byCreation');
+    $vars->{ byCreation_shortList_loop        } = $self->getByCreationShortListVars;
+
+	# most downloaded
+    $vars->{ byDownloads_url            } = $self->getUrl('func=byDownloads');
+    $vars->{ byDownloads_shortList_loop } = $self->getByDownloadsShortListVars;
+
+	# most highly rated
+    $vars->{ byRating_url               } = $self->getUrl('func=byRating');
+    $vars->{ byRating_shortList_loop    } = $self->getByRatingShortListVars;
+
+	# most viewed
+    $vars->{ byViews_url                } = $self->getUrl('func=byViews');
+    $vars->{ byViews_shortList_loop     } = $self->getByViewsShortListVars;
+
+	# most recently updated
+    $vars->{ byRecent_url               } = $self->getUrl('func=byRecent');
+    $vars->{ byRecent_shortList_loop    } = $self->getByRecentShortListVars;
+
+	return $vars;
+}
+
+
+##-------------------------------------------------------------------
+#sub formatShortList {
+#	my ($self, $url, $title, $query, $params) = @_;
+#	my $out         = q{<fieldset class="bazaarList"><legend><a href="}.$url.q{">}.$title.q{ &raquo;</a></legend>};
+#	my $session     = $self->session;
+#	my $revisions   = $self->session->db->read($query, $params);
+#	my $first = 1;
+#
+#    while (my ($id) = $revisions->array) {
+#		my $asset = WebGUI::Asset::Sku::BazaarItem->new($session, $id);
+#		if (defined $asset) {
+#			if ($first) {
+#				$out .= q{<div class="firstBazaarItem">};
+#				my $screens     = $asset->getScreenStorage;
+#				my $firstScreen = $screens->getFiles->[0];
+#				if ($firstScreen ne "") {
+#					$out .= q{<a class="thumbpic" href="}.$asset->getUrl.q{"><img src="}.$screens->getThumbnailUrl($firstScreen).q{" alt="}.$firstScreen.q{" class="thumbnail" /><span><img src="}.$screens->getUrl($firstScreen).q{" /></span></a>};
+#				}
+#				$out .= q{<a href="}.$asset->getUrl.q{">}.$asset->getTitle.q{</a> - }.$asset->get('synopsis').q{<br />};
+#				$out .= q{</div><ul>};
+#				$first = 0;
+#			}
+#			else {
+#				$out .= q{<li>&#187;<a href="}.$asset->getUrl.q{">}.$asset->getTitle.q{</a></li>};
+#			}
+#		}
+#	}
+#	$out .= q{</ul></fieldset>};
+#	return $out;
+#}
 
 #-------------------------------------------------------------------
 sub prepareView {
 	my $self = shift;
 	$self->SUPER::prepareView;
-	$self->session->style->setRawHeadTags(q{
-	<style type="text/css">
-        .bazaarKeywords {
-		border: 1px solid #bbbbbb;
-		padding: 30px;
-		margin-bottom: 20px;
-	}
-	.bazaarList {
-		width: 220px;
-		display: -moz-inline-box;  /* Moz */
-		display: inline-block;  /* Op, Saf, IE \*/
-		vertical-align: top;  /* IE Mac non capisce e a volte crea extra v space */
-		font-size: 12px;
-		margin-right: 20px;
-		margin-bottom: 20px;
-		border: 1px solid #bbbbbb;
-		padding: 5px;
-	}
-	.bazaarList ul {
-		margin: 5px;
-		padding: 5px;
-		list-style-type: none;
-		text-indent: -5px;
-	}
-	.bazaarList ul li {
-		margin-bottom: 5px;
-	}
-	.bazaarList legend, .bazaarList legend a {
-		text-decoration: none;
-		color: #555555;
-		font-size: 15px;
-		font-weight: bold;
-	}
-	.firstBazaarItem {
-		margin-bottom: 10px;
-		padding: 10px;
-		color: black;
-		background-color: #eeffee;
-	}
-	.thumbpic {
-		z-index: 0;
-		margin-left: 5px;
-		margin-bottom: 5px;
-		float: right;
-	}
 
-	.thumbpic:hover {
-		background-color: transparent;
-		z-index: 50;
-	}
-
-	.thumbpic span {
-		position: absolute;
-		background-color: black;
-		padding: 5px;
-		left: -1000px;
-		border: 1px dashed gray;
-		visibility: hidden;
-		color: black;
-		text-decoration: none;
-	}
-
-	.thumbpic span img { 
-		border-width: 0;
-		padding: 2px;
-		max-height: 480px;
-		max-width: 640px;
-	}
-
-	.thumbpic:hover span { 
-		left: 20px;
-		visibility: visible;
-		z-index: 5000;
-	}		
-</style>							   
-		});}
+    my $template = WebGUI::Asset::Template->new( $self->session, $self->getValue('templateId') );
+    $template->prepare;
+    $self->{_template} = $template;
+}
 
 #-------------------------------------------------------------------
 
@@ -266,71 +409,11 @@ to be displayed within the page style.
 =cut
 
 sub view {
-	my $self = shift;
-	my $session = $self->session;	
-	my $out = "";
-	if ($session->var->isAdminOn) {
-		$out .= q{<p>}.$self->getToolbar.q{</p>};
-	}
-	if ($self->get("displayTitle")) {
-		$out .= q{<h3>}.$self->getTitle.q{</h3>};
-	}
-	if ($self->canUpload) {
-		$out .= q{<p><a href="}.$self->getUrl('func=add;class=WebGUI::Asset::Sku::BazaarItem').q{">Upload to the Bazaar</a></p>};
-	}
-	
-	$out .= $self->get('description');
-	
-	# keywords
-	$out .= q{<div class="bazaarKeywords">}.WebGUI::Keyword->new($self->session)->generateCloud({
-        startAsset=>$self,
-        displayFunc=>"byKeyword",
-        }).q{</div>};
+    my $self = shift;
 
-	# featured
-	$out .= $self->formatShortList(
-		$self->getUrl('func=byFeatured'),
-		'Featured',
-		"select distinct assetId from bazaarItem where price > 0 and revisionDate > unix_timestamp() - 60*60*24*365*2 order by revisionDate desc limit 10"
-	);
+    my $vars = $self->getViewVars;
 
-	# newest
-	$out .= $self->formatShortList(
-		$self->getUrl('func=byCreation'),
-		'Newest',
-		"select assetId from asset where parentId=? and className like 'WebGUI::Asset::Sku::BazaarItem%' order by creationDate desc limit 10",
-		[$self->getId]
-	);
-
-	# most downloaded
-	$out .= $self->formatShortList(
-		$self->getUrl('func=byDownloads'),
-		'Most Downloaded',
-		"select distinct assetId from bazaarItem where revisionDate > unix_timestamp() - 60*60*24*365*2 order by downloads desc limit 10"
-	);
-
-	# most highly rated
-	$out .= $self->formatShortList(
-		$self->getUrl('func=byRating'),
-		'Highly Rated',
-		"select distinct assetId from bazaarItem left join assetAspectComments using (assetId,revisionDate) where revisionDate > unix_timestamp() - 60*60*24*365*2 order by averageCommentRating desc limit 10"
-	);
-	# most viewed
-	$out .= $self->formatShortList(
-		$self->getUrl('func=byViews'),
-		'Most Viewed',
-		"select distinct assetId from bazaarItem where revisionDate > unix_timestamp() - 60*60*24*365*2 order by views desc limit 10"
-	);
-
-	# most recently updated
-	$out .= $self->formatShortList(
-		$self->getUrl('func=byRecent'),
-		'Recently Updated',
-		"select distinct assetId from bazaarItem order by revisionDate desc limit 10"
-	);
-
-	# output
-	return $out;
+    return $self->{_template}->process( $vars );
 }
 
 
@@ -406,11 +489,15 @@ We're extending www_editSave() stop the creation of non-bazaar items as children
 sub www_editSave {
 	my $self    = shift;
     my $session = $self->session;
-    my $className = $session->form->param("class");
-	# if it's not what we expect, don't add it.
-    if ($className ne "WebGUI::Asset::Sku::BazaarItem" && $className ne "") {
+
+    my $className   = $session->form->param('class');
+    my $func        = $session->form->param('func');
+
+	# Only allow Bazaar Items and friends to be added to a Bazaar.
+    if ( $func eq 'add' && $className !~ /^WebGUI::Asset::Sku::BazaarItem/ ) {
 		return $self->getParent->www_view;
     }    
+
     return $self->SUPER::www_editSave(@_);
 }
 
