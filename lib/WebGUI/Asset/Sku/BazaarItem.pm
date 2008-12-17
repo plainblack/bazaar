@@ -622,7 +622,7 @@ sub getViewVars {
     $vars->{ subscriptionToggleUrl  } = $self->getUrl( 'func=toggleSubscription' );
 
     # keywords
-    $vars->{ keyword_loop           } = $self->getKeywordLoop;
+    $vars->{ keyword_loop           } = $self->getKeywordLoopVars;
    
     # management
     $vars->{ canEdit                } = $self->canEdit;
