@@ -29,6 +29,7 @@ use WebGUI::Shop::Vendor;
 use WebGUI::Storage;
 use WebGUI::Storage::Image;
 use WebGUI::User;
+use WebGUI::Utility qw/isIn/;
 
 
 =head1 NAME
