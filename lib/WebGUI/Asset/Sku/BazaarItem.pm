@@ -373,7 +373,7 @@ sub getEditForm {
 			value	=> $self->get('vendorId'),
 		);
 	}
-	else {
+	elsif( $self->getParent->getValue('autoCreateVendors') ) {
 		my $vendor = eval { WebGUI::Shop::Vendor->newByUserId($session)};
 		my $vendorInfo = {};
 		unless (WebGUI::Error->caught) {
@@ -518,6 +518,7 @@ sub getScreenLoopVars {
     my @screenFiles;
     foreach my $file ( @{ $storage->getFiles } ) {
         push @screenFiles, {
+            screen_filename     => $file,
             screen_url          => $storage->getUrl( $file ),
             screen_thumbnailUrl => $storage->getThumbnailUrl( $file ),
         };
@@ -746,22 +747,26 @@ sub prepareView {
 
 #-------------------------------------------------------------------
 sub processPropertiesFromFormPost {
-	my $self = shift;
-	my $oldVersion = $self->get('versionNumber');
-	$self->next::method(@_);
-	my $session = $self->session;
-	my $form = $session->form;
-	my $user = $session->user;
+	my $self        = shift;
+	my $session     = $self->session;
+	my $form        = $session->form;
+	my $user        = $session->user;
 	my $properties = {};
-	if ($self->get('ownerUserId') eq '3') {
+	
+    $self->next::method( @_ );
+
+	my $oldVersion  = $self->get('versionNumber');
+
+	if ( $self->get('ownerUserId') eq '3' ) {
 		$properties->{ownerUserId} = $user->userId;
 	}
-	unless ($user->isAdmin) {
+
+	if ( !$user->isAdmin && $self->getParent->getValue('autoCreateVendors') ) {
 		my %vendorInfo = (
-			preferredPaymentType	=> $form->get('vendorPaymentMethod','selectBox','PayPal'),
-			name					=> $form->get('vendorName','text', $user->username),
-			url						=> $form->get('vendorUrl','url'),
-			paymentInformation		=> $form->get('vendorPaymentInformation','textarea'),
+			preferredPaymentType	=> $form->get( 'vendorPaymentMethod', 'selectBox', 'PayPal' ),
+			name					=> $form->get( 'vendorName', 'text', $user->username ),
+			url						=> $form->get( 'vendorUrl', 'url' ),
+			paymentInformation		=> $form->get( 'vendorPaymentInformation','textarea' ),
 			userId					=> $user->userId,
 		);
 		my $vendor = eval { WebGUI::Shop::Vendor->newByUserId($session)};
@@ -775,6 +780,7 @@ sub processPropertiesFromFormPost {
 	}
 	$self->update($properties);
 	$self->requestAutoCommit;
+
 	# this is a new version of the product
 	if ($oldVersion ne $self->get('versionNumber')) {
 		$user->karma(100, $self->getId, 'Uploading '.$self->get('versionNumber').' of Bazaar Item '.$self->getTitle);

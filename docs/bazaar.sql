@@ -18,8 +18,6 @@ create table bazaarItem (
 	averageRating float,
 	views int not null default 0,
 	downloads int not null default 0,
-    templateId char(22) binary not null default 'vhNlRmwdrZivIk1IzEpvYQ',
-    bazaarItemTemplateId char(22) binary not null default 'VlkZo8ew56Yns_6WMIU8BQ',
 	primary key (assetId, revisionDate)
 );
 
@@ -27,6 +25,11 @@ create table bazaar (
 	assetId varchar(22) binary not null,
 	revisionDate bigint not null,
     groupToUpload varchar(22) binary not null default '2',
+    vendorsOnly tinyint(1) not null default 0,
+    autoCreateVendors tinyint(1) not null default 1,
     listLimit int not null default 50,
+    templateId char(22) binary not null default 'vhNlRmwdrZivIk1IzEpvYQ',
+    bazaarItemTemplateId char(22) binary not null default 'VlkZo8ew56Yns_6WMIU8BQ',
+    searchTemplateId char(22) binary not null default 'ddc-E8lgRHBsSzOSr4aNrw',
 	primary key (assetId, revisionDate)
 );

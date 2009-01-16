@@ -39,8 +39,15 @@ sub canEdit {
 #-------------------------------------------------------------------
 
 sub canUpload {
-	my $self = shift;
-	return $self->session->user->isInGroup($self->get('groupToUpload')) || $self->canEdit;
+	my $self    = shift;
+    my $session = $self->session;
+
+    if ( $self->getValue('vendorsOnly') ) {
+        my $vendor = WebGUI::Shop::Vendor->newByUserId( $session );
+        return 0 unless $vendor;
+    }
+
+	return $session->user->isInGroup($self->get('groupToUpload')) || $self->canEdit;
 }
 
 #-------------------------------------------------------------------
@@ -66,6 +73,18 @@ sub definition {
 			label			=> "Group To Upload",
 			tab				=> "security",
         },
+        vendorsOnly => {
+            fieldType       => 'yesNo',
+            defaultValue    => 0,
+            label           => 'Only allow vendors to upload?',
+            tab             => 'security',
+        },
+        autoCreateVendors => {
+            fieldType       => 'yesNo',
+            defaultValue    => 1,
+            label           => 'Automatically create vendor accounts?',
+            tab             => 'security',
+        },
 		listLimit => {
 			fieldType		=> "integer",
 			defaultValue	=> 50,
@@ -85,7 +104,14 @@ sub definition {
             label           => 'Bazaar Item template',
             tab             => 'display',
             namespace       => 'BazaarItem',
-        }
+        },
+        searchTemplateId => {
+            fieldType       => 'template',
+            defaultValue    => 'ddc-E8lgRHBsSzOSr4aNrw',
+            label           => 'Search results template',
+            tab             => 'display',
+            namespace       => 'Bazaar/Search',
+        },
 	);
 	push(@{$definition}, {
 		assetName=>'Bazaar',
@@ -103,60 +129,16 @@ sub definition {
 sub formatList {
 	my ($self, $assetIds, $title) = @_;
 	my $limit = $self->get('listLimit');
-	my $out = '<h3>'.$title.'</h3>';
-	my $session = $self->session;
-	$session->style->setRawHeadTags(q{
-	<style type="text/css">
-	.thumbpic {
-		float: right;
-	}
-	.thumbpic:hover {
-		background-color: transparent;
-		z-index: 50;
-	}
 
-	.thumbpic span {
-		background-color: black;
-		padding: 5px;
-		border: 1px dashed gray;
-		visibility: hidden;
-		color: black;
-		text-decoration: none;
-		display: none;
-		position: absolute;
-	}
-
-	.thumbpic span img { 
-		border-width: 0;
-		padding: 2px;
-		max-height: 480px;
-		max-width: 640px;
-	}
-
-	.thumbpic:hover span { 
-		visibility: visible;
-		display: block;
-		right: 100px;
-	}		
-</style>							   
-		});
-	foreach my $id (@$assetIds) {
-		my $asset = WebGUI::Asset::Sku::BazaarItem->new($session, $id);
-		if (defined $asset) {
-			$out .= q{<p style="clear: both;">}.$asset->getAverageCommentRatingIcon;
-			
-			my $screens = $asset->getScreenStorage;
-			my $firstScreen = $screens->getFiles->[0];
-			if ($firstScreen ne "") {
-				$out .= q{<a class="thumbpic" href="}.$asset->getUrl.q{"><img src="}.$screens->getThumbnailUrl($firstScreen).q{" alt="}.$firstScreen.q{" class="thumbnail" /><span><img src="}.$screens->getUrl($firstScreen).q{" /></span></a> };
-			}
-			$out .= q{<b><a href="}.$asset->getUrl.q{">}.$asset->getTitle.q{</a></b><br />}.$asset->get('synopsis').q{</p>};
-		}
-		$limit--;
-		last unless $limit;
-	}
-	$out .= '<div style="float: right;"><a href="'.$self->getUrl.'">Back to the Bazaar</a></div><div style="clear: both;"></div>';
-	return $self->processStyle($out);
+    my $vars = {
+        title           => $title,
+        url             => $self->getUrl,
+        results_loop    => $self->generateShortListLoop( $assetIds ),
+    };
+    
+    my $template = WebGUI::Asset::Template->new( $self->session, $self->getValue('searchTemplateId') );
+    
+	return $self->processStyle( $template->process( $vars ) );
 }
 
 
@@ -303,6 +285,7 @@ sub generateShortListLoop {
         $item{ item_url                 } = $asset->getUrl;
         $item{ item_previewImages_loop  } = \@previewImagesLoop;
         $item{ item_previewFiles_loop   } = \@previewFilesLoop;
+        $item{ item_rating_icon         } = $asset->getAverageCommentRatingIcon;
 
         push @shortList, \%item;
     }
