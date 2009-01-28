@@ -47,7 +47,7 @@ sub canUpload {
         return 0 unless $vendor;
     }
 
-	return $session->user->isInGroup($self->get('groupToUpload')) || $self->canEdit;
+	return $session->user->isInGroup($self->get('groupToUpload')) || $self->SUPER::canEdit;
 }
 
 #-------------------------------------------------------------------
