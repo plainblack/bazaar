@@ -60,7 +60,8 @@ sub canAdd {
 #-------------------------------------------------------------------
 sub canDownload {
 	my $self = shift;
-	return $self->session->user->userId eq $self->get('ownerUserId')
+	return $self->getPrice < 0.01
+        || $self->session->user->userId eq $self->get('ownerUserId')
 		|| $self->session->user->isInGroup($self->getDownloadGroup->getId)
 		|| $self->canEdit;
 }
