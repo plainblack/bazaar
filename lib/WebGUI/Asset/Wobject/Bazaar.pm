@@ -10,14 +10,62 @@ package WebGUI::Asset::Wobject::Bazaar;
 # http://www.plainblack.com                     info@plainblack.com
 #-------------------------------------------------------------------
 
-use strict;
-use Tie::IxHash;
-use WebGUI::Utility;
-use base 'WebGUI::Asset::Wobject';
+use Moose;
+use WebGUI::Definition::Asset;
+extends 'WebGUI::Asset::Wobject';
 
+define assetName    => 'Bazaar';
+define icon         => 'assets.gif';
+define tableName    => 'bazaar';
+
+property groupToUpload => (
+    fieldType       => "group",
+    defaultValue    => 2,
+    label           => "Group To Upload",
+    tab             => "security",
+);
+property vendorsOnly => (
+    fieldType       => 'yesNo',
+    defaultValue    => 0,
+    label           => 'Only allow vendors to upload?',
+    tab             => 'security',
+);
+property autoCreateVendors => (
+    fieldType       => 'yesNo',
+    defaultValue    => 1,
+    label           => 'Automatically create vendor accounts?',
+    tab             => 'security',
+);
+property listLimit => (
+    fieldType       => "integer",
+    defaultValue    => 50,
+    label           => "List Limit",
+    tab             => "display",
+);
+property templateId => (
+    fieldType       => 'template',
+    defaultValue    => 'vhNlRmwdrZivIk1IzEpvYQ',
+    label           => 'Bazaar template',
+    tab             => 'display',
+    namespace       => 'Bazaar',
+);
+property bazaarItemTemplateId => (
+    fieldType       => 'template',
+    defaultValue    => 'VlkZo8ew56Yns_6WMIU8BQ',
+    label           => 'Bazaar Item template',
+    tab             => 'display',
+    namespace       => 'BazaarItem',
+);
+property searchTemplateId => (
+    fieldType       => 'template',
+    defaultValue    => 'ddc-E8lgRHBsSzOSr4aNrw',
+    label           => 'Search results template',
+    tab             => 'display',
+    namespace       => 'Bazaar/Search',
+);
 
 #-------------------------------------------------------------------
-sub canEdit {
+override canEdit => sub {
         my $self    = shift;
         my $userId  = shift     || $self->session->user->userId;
         return (
@@ -32,9 +80,9 @@ sub canEdit {
 			) && 
 			$self->canUpload( $userId )
 		) || # account for new items
-		$self->SUPER::canEdit( $userId )
+		super();
 	);
-}
+};
 
 #-------------------------------------------------------------------
 
@@ -42,93 +90,19 @@ sub canUpload {
 	my $self    = shift;
     my $session = $self->session;
 
-    if ( $self->getValue('vendorsOnly') ) {
+    if ( $self->vendorsOnly ) {
         my $vendor = WebGUI::Shop::Vendor->newByUserId( $session );
         return 0 unless $vendor;
     }
 
-	return $session->user->isInGroup($self->get('groupToUpload')) || $self->SUPER::canEdit;
-}
-
-#-------------------------------------------------------------------
-
-=head2 definition ( )
-
-defines wobject properties for New Wobject instances.  You absolutely need 
-this method in your new Wobjects.  If you choose to "autoGenerateForms", the
-getEditForm method is unnecessary/redundant/useless.  
-
-=cut
-
-sub definition {
-	my $class = shift;
-	my $session = shift;
-	my $definition = shift;
-	my %properties;
-	tie %properties, 'Tie::IxHash';
-	%properties = (
-		groupToUpload => {
-			fieldType       => "group",
-			defaultValue    => 2,
-			label			=> "Group To Upload",
-			tab				=> "security",
-        },
-        vendorsOnly => {
-            fieldType       => 'yesNo',
-            defaultValue    => 0,
-            label           => 'Only allow vendors to upload?',
-            tab             => 'security',
-        },
-        autoCreateVendors => {
-            fieldType       => 'yesNo',
-            defaultValue    => 1,
-            label           => 'Automatically create vendor accounts?',
-            tab             => 'security',
-        },
-		listLimit => {
-			fieldType		=> "integer",
-			defaultValue	=> 50,
-			label			=> "List Limit",
-			tab				=> "display",
-		},
-        templateId => {
-            fieldType       => 'template',
-            defaultValue    => 'vhNlRmwdrZivIk1IzEpvYQ',
-            label           => 'Bazaar template',
-            tab             => 'display',
-            namespace       => 'Bazaar',
-        },
-        bazaarItemTemplateId => {
-            fieldType       => 'template',
-            defaultValue    => 'VlkZo8ew56Yns_6WMIU8BQ',
-            label           => 'Bazaar Item template',
-            tab             => 'display',
-            namespace       => 'BazaarItem',
-        },
-        searchTemplateId => {
-            fieldType       => 'template',
-            defaultValue    => 'ddc-E8lgRHBsSzOSr4aNrw',
-            label           => 'Search results template',
-            tab             => 'display',
-            namespace       => 'Bazaar/Search',
-        },
-	);
-	push(@{$definition}, {
-		assetName=>'Bazaar',
-		icon=>'assets.gif',
-		autoGenerateForms=>1,
-		tableName=>'bazaar',
-		className=>'WebGUI::Asset::Wobject::Bazaar',
-		properties=>\%properties
-		});
-        return $class->SUPER::definition($session, $definition);
+	return $session->user->isInGroup($self->groupToUpload) || $self->SUPER::canEdit;
 }
 
 
 #-------------------------------------------------------------------
 sub formatList {
 	my ($self, $assetIds, $title) = @_;
-	my $limit = $self->get('listLimit');
+	my $limit = $self->listLimit;
 
     my $vars = {
         title           => $title,
@@ -136,7 +110,7 @@ sub formatList {
         results_loop    => $self->generateShortListLoop( $assetIds ),
     };
     
-    my $template = WebGUI::Asset::Template->new( $self->session, $self->getValue('searchTemplateId') );
+    my $template = WebGUI::Asset::Template->new( $self->session, $self->searchTemplateId );
     
 	return $self->processStyle( $template->process( $vars ) );
 }
@@ -377,7 +351,7 @@ sub prepareView {
 	my $self = shift;
 	$self->SUPER::prepareView;
 
-    my $template = WebGUI::Asset::Template->new( $self->session, $self->getValue('templateId') );
+    my $template = WebGUI::Asset::Template->new( $self->session, $self->templateId );
     $template->prepare;
     $self->{_template} = $template;
 }
@@ -469,7 +443,7 @@ We're extending www_editSave() stop the creation of non-bazaar items as children
 
 =cut
 
-sub www_editSave {
+override www_editSave => sub {
 	my $self    = shift;
     my $session = $self->session;
 
@@ -481,8 +455,8 @@ sub www_editSave {
 		return $self->getParent->www_view;
     }    
 
-    return $self->SUPER::www_editSave(@_);
-}
+    return super();
+};
 
 
 

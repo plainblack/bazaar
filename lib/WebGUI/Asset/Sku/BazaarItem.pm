@@ -14,10 +14,11 @@ package WebGUI::Asset::Sku::BazaarItem;
 
 =cut
 
-use strict;
-use Tie::IxHash;
-use Class::C3;
-use base qw(WebGUI::AssetAspect::Comments WebGUI::Asset::Sku);
+use Moose;
+use WebGUI::Asset::Definition;
+extends 'WebGUI::Asset::Sku';
+with 'WebGUI::Role::Asset::Comments';
+
 use JSON;
 use WebGUI::Asset::Template;
 use WebGUI::Exception;
@@ -29,8 +30,110 @@ use WebGUI::Shop::Vendor;
 use WebGUI::Storage;
 use WebGUI::Storage::Image;
 use WebGUI::User;
-use WebGUI::Utility qw/isIn/;
 
+define assetName           => 'Bazaar Item';
+define icon                => 'assets.gif';
+define tableName           => 'bazaarItem';
+
+property product => (
+    tab             => "properties",
+    fieldType       => "file",
+    default         => undef,
+    label           => 'Product',
+    maxAttachments  => 5,
+    hoverHelp       => 'The file that can be downloaded.',
+},
+property screenshots => (
+    tab             => "properties",
+    fieldType       => "image",
+    default         => undef,
+    label           => 'Screen Shots',
+    maxAttachments  => 5,
+    hoverHelp       => 'Images captured of the product.',
+);
+property requirements => (
+    tab             => "properties",
+    fieldType       => "HTMLArea",
+    default         => undef,
+    label           => 'Requirements',
+    hoverHelp       => 'The prerequisites to use this product.',
+);
+property versionNumber => (
+    tab             => "properties",
+    fieldType       => "text",
+    default         => 1,
+    label           => 'Version Number',
+    hoverHelp       => 'What release number is it?',
+);
+property releaseDate => (
+    tab             => "properties",
+    fieldType       => "date",
+    default         => WebGUI::DateTime->new($session, time())->toDatabaseDate,
+    label           => 'Release Date',
+    hoverHelp       => 'The date this version of the product was released publicly.',
+);
+property releaseNotes => {
+    tab             => "properties",
+    fieldType       => "HTMLArea",
+    default         => undef,
+    label           => 'Release Notes',
+    hoverHelp       => 'Information about this release or the release history.',
+    },
+property supportUrl => (
+    tab             => "properties",
+    fieldType       => "url",
+    default         => undef,
+    label           => 'Support URL',
+    hoverHelp       => 'A URL where a user can find help for this product.',
+);
+property moreInfoUrl => {
+    tab             => "properties",
+    fieldType       => "url",
+    default         => undef,
+    label           => 'More Info URL',
+    hoverHelp       => 'A URL where a user can find out more details about this product.',
+    },
+property demoUrl => (
+    tab             => "properties",
+    fieldType       => "url",
+    default         => undef,
+    label           => 'Demo URL',
+    hoverHelp       => 'A URL where a user can see this product in action.',
+);
+property price => (
+    tab             => "shop",
+    fieldType       => "float",
+    default         => 0.00,
+    label           => 'Price',
+    hoverHelp       => 'The amount to be paid to download this item.',
+);
+property downloadPeriod => (
+    tab             => "shop",
+    fieldType       => "interval",
+    default         => 60*60*24*365,
+    label           => 'Download Period',
+    hoverHelp       => 'The amount of time the user will have to download the item and updates.',
+);
+property groupToDownload => (
+    noFormPost      => 1,
+    fieldType       => "hidden",
+    default         => 7,
+);
+property groupToSubscribe => (
+    noFormPost      => 1,
+    fieldType       => "hidden",
+    default         => undef,
+);
+property views => (
+    noFormPost      => 1,
+    fieldType       => "hidden",
+    default         => 0,
+);
+property downloads => (
+    noFormPost      => 1,
+    fieldType       => "hidden",
+    default         => 0,
+);
 
 =head1 NAME
 
@@ -51,28 +154,28 @@ These methods are available from this class:
 =cut
 
 #-------------------------------------------------------------------
-sub canAdd {
+around canAdd => sub {
 	my $class = shift;
 	my $session = shift;
-	return $class->next::method($session, undef, '7');
-}
+	return $class->$orig($session, undef, '7');
+};
 
 #-------------------------------------------------------------------
 sub canDownload {
 	my $self = shift;
 	return $self->getPrice < 0.01
-        || $self->session->user->userId eq $self->get('ownerUserId')
+        || $self->session->user->userId eq $self->ownerUserId
 		|| $self->session->user->isInGroup($self->getDownloadGroup->getId)
 		|| $self->canEdit;
 }
 
 #-------------------------------------------------------------------
-sub canEdit {
+override canEdit => sub {
 	my $self = shift;
 	my $form = $self->session->form;
-	return $self->next::method  # account for normal editing
+	return $self->next::method;  # account for normal editing
 		|| $self->getParent->canEdit; # account for admins
-}
+};
 
 #-------------------------------------------------------------------
 
@@ -84,7 +187,7 @@ Returns a boolean indicating whether the user can view the current item.
 
 sub canView {
 	my $self = shift;
-	if (($self->get("status") eq "approved" || $self->get("status") eq "archived") && $self->getParent->canView) {
+	if (($self->status eq "approved" || $self->status eq "archived") && $self->getParent->canView) {
 			return 1;
 	}
 	elsif ($self->canEdit) {
@@ -93,133 +196,6 @@ sub canView {
 	else {
 			$self->getParent->canEdit;
 	}
-}
-
-
-#-------------------------------------------------------------------
-
-=head2 definition
-
-Adds fields custom to this class.
-
-=cut
-
-sub definition {
-	my $class = shift;
-	my $session = shift;
-	my $definition = shift;
-	my %properties;
-	tie %properties, 'Tie::IxHash';
-	%properties = (
-		product => {
-			tab             => "properties",
-			fieldType       => "file",
-			defaultValue    => undef,
-			label           => 'Product',
-			maxAttachments	=> 5,
-			hoverHelp       => 'The file that can be downloaded.',
-			},
-		screenshots => {
-			tab             => "properties",
-			fieldType       => "image",
-			defaultValue    => undef,
-			label           => 'Screen Shots',
-			maxAttachments	=> 5,
-			hoverHelp       => 'Images captured of the product.',
-			},
-		requirements => {
-			tab             => "properties",
-			fieldType       => "HTMLArea",
-			defaultValue    => undef,
-			label           => 'Requirements',
-			hoverHelp       => 'The prerequisites to use this product.',
-			},
-		versionNumber => {
-			tab             => "properties",
-			fieldType       => "text",
-			defaultValue    => 1,
-			label           => 'Version Number',
-			hoverHelp       => 'What release number is it?',
-			},
-		releaseDate => {
-			tab             => "properties",
-			fieldType       => "date",
-			defaultValue    => WebGUI::DateTime->new($session, time())->toDatabaseDate,
-			label           => 'Release Date',
-			hoverHelp       => 'The date this version of the product was released publicly.',
-			},
-		releaseNotes => {
-			tab             => "properties",
-			fieldType       => "HTMLArea",
-			defaultValue    => undef,
-			label           => 'Release Notes',
-			hoverHelp       => 'Information about this release or the release history.',
-			},
-		supportUrl => {
-			tab             => "properties",
-			fieldType       => "url",
-			defaultValue    => undef,
-			label           => 'Support URL',
-			hoverHelp       => 'A URL where a user can find help for this product.',
-			},
-		moreInfoUrl => {
-			tab             => "properties",
-			fieldType       => "url",
-			defaultValue    => undef,
-			label           => 'More Info URL',
-			hoverHelp       => 'A URL where a user can find out more details about this product.',
-			},
-		demoUrl => {
-			tab             => "properties",
-			fieldType       => "url",
-			defaultValue    => undef,
-			label           => 'Demo URL',
-			hoverHelp       => 'A URL where a user can see this product in action.',
-			},
-		price => {
-			tab             => "shop",
-			fieldType       => "float",
-			defaultValue    => 0.00,
-			label           => 'Price',
-			hoverHelp       => 'The amount to be paid to download this item.',
-			},
-		downloadPeriod => {
-			tab             => "shop",
-			fieldType       => "interval",
-			defaultValue    => 60*60*24*365,
-			label           => 'Download Period',
-			hoverHelp       => 'The amount of time the user will have to download the item and updates.',
-			},
-		groupToDownload => {
-			noFormPost		=> 1,
-			fieldType       => "hidden",
-			defaultValue    => 7,
-			},
-		groupToSubscribe => {
-			noFormPost		=> 1,
-			fieldType       => "hidden",
-			defaultValue    => undef,
-			},
-		views => {
-			noFormPost		=> 1,
-			fieldType       => "hidden",
-			defaultValue    => 0,
-			},
-		downloads => {
-			noFormPost		=> 1,
-			fieldType       => "hidden",
-			defaultValue    => 0,
-			},
-	    );
-	push(@{$definition}, {
-		assetName           => 'Bazaar Item',
-		icon                => 'assets.gif',
-		autoGenerateForms   => 1,
-		tableName           => 'bazaarItem',
-		className           => 'WebGUI::Asset::Sku::BazaarItem',
-		properties          => \%properties
-	    });
-	return $class->next::method($session, $definition);
 }
 
 #-------------------------------------------------------------------
@@ -248,7 +224,7 @@ sub getDownloadGroup {
 	if (exists $self->{_groupToDownload}) {
 		return $self->{_groupToDownload};
 	}
-	elsif ($self->get('groupToDownload') eq '7' && $self->getPrice > 0) {
+	elsif ($self->groupToDownload eq '7' && $self->getPrice > 0) {
 		my $g = WebGUI::Group->new($self->session,'new');
 		$g->name('Download Group for '.$self->getTitle.' ('.$self->getId.')');
 		$g->description('This group can download the files attached to bazaar item '.$self->getTitle.' ('.$self->getId.')');
@@ -256,7 +232,7 @@ sub getDownloadGroup {
 		$self->{_groupToDownload} = $g;
 	}
 	else {
-		$self->{_groupToDownload} = WebGUI::Group->new($self->session, $self->get('groupToDownload'));
+		$self->{_groupToDownload} = WebGUI::Group->new($self->session, $self->groupToDownload);
 	}
 	return $self->{_groupToDownload};
 }
@@ -296,45 +272,45 @@ sub getEditForm {
 	$f->text(
 		label	=> 'Title',
 		name	=> 'title',
-		value	=> $self->get('title'),
+		value	=> $self->title,
 	);
 	$f->textarea(
 		label	=> 'Short Description',
 		name	=> 'synopsis',
-		value	=> $self->get('synopsis'),
+		value	=> $self->synopsis,
 	);
 	$f->HTMLArea(
 		label		=> 'Full Description',
 		richEditId	=> 'PBrichedit000000000002',
 		name		=> 'description',
-		value		=> $self->get('description'),
+		value		=> $self->description,
 	);
 	$f->url(
 		label	=> 'More Information URL',
 		name	=> 'moreInfoUrl',
-		value	=> $self->get('moreInfoUrl'),
+		value	=> $self->moreInfoUrl,
 	);
 	$f->url(
 		label	=> 'Support URL',
 		name	=> 'supportUrl',
-		value	=> $self->get('supportUrl'),
+		value	=> $self->supportUrl,
 	);
 	$f->url(
 		label	=> 'Demo URL',
 		name	=> 'demoUrl',
-		value	=> $self->get('demoUrl'),
+		value	=> $self->demoUrl,
 	);
 	$f->image(
 		name			=> "screenshots",
 		label			=> "Screen Shots",
 		maxAttachments	=> 5,
-		value			=> $self->get('screenshots'),
+		value			=> $self->screenshots,
 	);
 	$f->file(
 		name			=> "product",
 		label			=> "Product File(s)",
 		maxAttachments	=> 5,
-		value			=> $self->get('product'),
+		value			=> $self->product,
 	);
 	$f->fieldSetEnd;
 	
@@ -343,7 +319,7 @@ sub getEditForm {
 	$f->text(
 		label			=> 'Version Number',
 		name			=> 'versionNumber',
-		value			=> $self->get('versionNumber'),
+		value			=> $self->versionNumber,
 		defaultValue	=> 1,
 	);
 	$f->date(
@@ -355,13 +331,13 @@ sub getEditForm {
 		label		=> 'Release Notes',
 		richEditId	=> 'PBrichedit000000000002',
 		name		=> 'releaseNotes',
-		value		=> $self->get('releaseNotes'),
+		value		=> $self->releaseNotes,
 	);
 	$f->HTMLArea(
 		label		=> 'Requirements',
 		richEditId	=> 'PBrichedit000000000002',
 		name		=> 'requirements',
-		value		=> $self->get('requirements'),
+		value		=> $self->requirements,
 	);
 	$f->fieldSetEnd;
 
@@ -371,10 +347,10 @@ sub getEditForm {
 		$f->vendor(
 			label	=> 'Vendor',
 			name	=> 'vendorId',
-			value	=> $self->get('vendorId'),
+			value	=> $self->vendorId,
 		);
 	}
-	elsif( $self->getParent->getValue('autoCreateVendors') ) {
+	elsif( $self->getParent->autoCreateVendors ) {
 		my $vendor = eval { WebGUI::Shop::Vendor->newByUserId($session)};
 		my $vendorInfo = {};
 		unless (WebGUI::Error->caught) {
@@ -409,14 +385,14 @@ sub getEditForm {
 	$f->float(
 		label		=> 'Price',
         name		=> 'price',
-        value   	=> $self->get('price'),
+        value   	=> $self->price,
 		defaultValue	=> 0.00,
  	);
 	$f->interval(
 		label		=> 'Download Period',
         name		=> 'downloadPeriod',
 		hoverHelp	=> 'The amount of time the user will have to download the product and updates.',
-        value   	=> $self->get('downloadPeriod'),
+        value   	=> $self->downloadPeriod,
 		defaultValue	=> 60*60*24*365,
  	);
 	$f->text(
@@ -470,7 +446,7 @@ Returns the price field.
 
 sub getPrice {
     my $self = shift;
-    return $self->get("price") || 0.00;
+    return $self->price || 0.00;
 }
 
 #-------------------------------------------------------------------
@@ -495,17 +471,17 @@ sub getProductLoopVars {
 sub getProductStorage {
 	my $self = shift;
 	unless (exists $self->{_productStorage}) {
-		if ($self->get("product") eq "") {
+		if ($self->product eq "") {
 			$self->{_productStorage} = WebGUI::Storage->create($self->session);
 			$self->update({product=>$self->{_productStorage}->getId});
 		}
 		else {
-			$self->{_productStorage} = WebGUI::Storage->get($self->session,$self->get("product"));
+			$self->{_productStorage} = WebGUI::Storage->get($self->session,$self->product);
 		}
 		$self->{_productStorage}->setPrivileges(
-			$self->get('ownerUserId'),
+			$self->ownerUserId,
 			$self->getDownloadGroup->getId,
-			$self->getParent->get('groupIdEdit')
+			$self->getParent->groupIdEdit
 			);
 	}
 	return $self->{_productStorage};
@@ -532,12 +508,12 @@ sub getScreenLoopVars {
 sub getScreenStorage {
 	my $self = shift;
 	unless (exists $self->{_screenStorage}) {
-		if ($self->get("screenshots") eq "") {
+		if ($self->screenshots eq "") {
 			$self->{_screenStorage} = WebGUI::Storage::Image->create($self->session);
 			$self->update({screenshots=>$self->{_screenStorage}->getId});
 		}
 		else {
-			$self->{_screenStorage} = WebGUI::Storage::Image->get($self->session,$self->get("screenshots"));
+			$self->{_screenStorage} = WebGUI::Storage::Image->get($self->session,$self->screenshots);
 		}
 	}
 	return $self->{_screenStorage};
@@ -549,7 +525,7 @@ sub getSubscriptionGroup {
 	if (exists $self->{_groupToSubscribe}) {
 		return $self->{_groupToSubscribe};
 	}
-	elsif ($self->get('groupToSubscribe') eq '') {
+	elsif ($self->groupToSubscribe eq '') {
 		my $g = WebGUI::Group->new($self->session,'new');
 		$g->name('Subscribtion Group for '.$self->getTitle.' ('.$self->getId.')');
 		$g->description('This group can subscribe to the bazaar item '.$self->getTitle.' ('.$self->getId.')');
@@ -558,7 +534,7 @@ sub getSubscriptionGroup {
 		$self->{_groupToSubscribe} = $g;
 	}
 	else {
-		$self->{_groupToSubscribe} = WebGUI::Group->new($self->session, $self->get('groupToSubscribe'));
+		$self->{_groupToSubscribe} = WebGUI::Group->new($self->session, $self->groupToSubscribe);
 	}
 	return $self->{_groupToSubscribe};
 }
@@ -592,7 +568,7 @@ sub getViewVars {
     my $vars    = $self->get;
 
     # Fetch vendor information
-    my $vendor      = WebGUI::Shop::Vendor->new( $session, $self->get('vendorId') );
+    my $vendor      = WebGUI::Shop::Vendor->new( $session, $self->vendorId );
     unless (WebGUI::Error->caught || $vendor->get('name') eq 'Default Vendor') {
         my $vendorInfo  = $vendor->get;
         foreach my $key (keys %{ $vendorInfo }) {
@@ -604,7 +580,7 @@ sub getViewVars {
     $vars->{ canDownload            } = $self->canDownload;
     $vars->{ releaseDate            } = 
         $datetime->epochToHuman( 
-            $datetime->setToEpoch( $self->get('releaseDate') ), 
+            $datetime->setToEpoch( $self->releaseDate ), 
             '%z' 
         );
     $vars->{ productFiles_loop      } = $self->getProductLoopVars;
@@ -615,7 +591,7 @@ sub getViewVars {
     $vars->{ addToCart_form         } = $self->getAddToCartForm;
 
     $vars->{ rating                 } = $self->getAverageCommentRatingIcon;
-    $vars->{ lastUpdated            } = $datetime->epochToHuman( $self->get('revisionDate'), '%z' );
+    $vars->{ lastUpdated            } = $datetime->epochToHuman( $self->revisionDate, '%z' );
 
     $vars->{ comments               } = $self->getFormattedComments;
 
@@ -643,8 +619,8 @@ sub getViewVars {
 sub indexContent {
 	my $self = shift;
 	my $indexer = $self->next::method;
-	$indexer->addKeywords($self->get("releaseNotes"));
-	$indexer->addKeywords($self->get("requirements"));
+	$indexer->addKeywords($self->releaseNotes);
+	$indexer->addKeywords($self->requirements);
 }
 
 #-------------------------------------------------------------------
@@ -672,7 +648,7 @@ sub notifySubscribers {
     my $self = shift;
 	my $message = shift;
 	my $subject = shift || $self->getTitle." - Subscription Notification";
-	my $from = shift || WebGUI::User->new($self->session, $self->get('ownerUserId'))->profileField('email');
+	my $from = shift || WebGUI::User->new($self->session, $self->ownerUserId)->profileField('email');
 	my $siteurl =  $self->session->url->getSiteURL();
     my $mail = WebGUI::Mail::Send->create($self->session, {
 			from=>"<".$from.">",
@@ -703,7 +679,7 @@ Adds the user to the download group.
 
 sub onCompletePurchase {
 	my ($self, $item) = @_;
-	$self->getDownloadGroup->addUsers([$item->transaction->get('userId')], $self->get('downloadPeriod'));
+	$self->getDownloadGroup->addUsers([$item->transaction->get('userId')], $self->downloadPeriod);
 	my $user = WebGUI::User->new($self->session, $item->transaction->get('userId'));
 	if (defined $user) {
 		$user->karma(10,$self->getId, 'Purchased Bazaar Item '.$self->getTitle);
@@ -740,7 +716,7 @@ sub prepareView {
 		{ rel => 'stylesheet', type => "text/css" }
 	);
 
-    my $template = WebGUI::Asset::Template->new( $session, $bazaar->getValue('bazaarItemTemplateId') );
+    my $template = WebGUI::Asset::Template->new( $session, $bazaar->bazaarItemTemplateId );
     $template->prepare;
     $self->{_viewTemplate} = $template;
 }
@@ -756,13 +732,13 @@ sub processPropertiesFromFormPost {
 	
     $self->next::method( @_ );
 
-	my $oldVersion  = $self->get('versionNumber');
+	my $oldVersion  = $self->versionNumber;
 
-	if ( $self->get('ownerUserId') eq '3' ) {
+	if ( $self->ownerUserId eq '3' ) {
 		$properties->{ownerUserId} = $user->userId;
 	}
 
-	if ( !$user->isAdmin && $self->getParent->getValue('autoCreateVendors') ) {
+	if ( !$user->isAdmin && $self->getParent->autoCreateVendors ) {
 		my %vendorInfo = (
 			preferredPaymentType	=> $form->get( 'vendorPaymentMethod', 'selectBox', 'PayPal' ),
 			name					=> $form->get( 'vendorName', 'text', $user->username ),
@@ -783,10 +759,10 @@ sub processPropertiesFromFormPost {
 	$self->requestAutoCommit;
 
 	# this is a new version of the product
-	if ($oldVersion ne $self->get('versionNumber')) {
-		$user->karma(100, $self->getId, 'Uploading '.$self->get('versionNumber').' of Bazaar Item '.$self->getTitle);
+	if ($oldVersion ne $self->versionNumber) {
+		$user->karma(100, $self->getId, 'Uploading '.$self->versionNumber.' of Bazaar Item '.$self->getTitle);
 		$self->notifySubscribers(
-			$self->getTitle .' has been updated to version '.$self->get('versionNumber').'.',
+			$self->getTitle .' has been updated to version '.$self->versionNumber.'.',
 			$self->getTitle . ' Updated'
 			);
 	}
@@ -796,7 +772,7 @@ sub processPropertiesFromFormPost {
 sub purge {
 	my $self = shift;
 	foreach my $g ($self->getDownloadGroup, $self->getSubscriptionGroup) {
-		unless (isIn($g->getId, qw(1 2 3 7 12)) ) {
+		unless (grep { $_ eq $g->getId } qw(1 2 3 7 12)) ) {
 			$g->delete;	
 		}
 	}
@@ -896,7 +872,7 @@ Allows the user to make the download.
 sub www_download {
     my $self = shift;
     if ($self->canDownload) {
-		$self->update({downloads=>$self->get('downloads') + 1});
+		$self->update({downloads=>$self->downloads + 1});
 		$self->session->http->setRedirect($self->getProductStorage->getUrl($self->session->form->get('filename')));
 		return "redirect";
     }
