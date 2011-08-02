@@ -80,7 +80,7 @@ override canEdit => sub {
 			) && 
 			$self->canUpload( $userId )
 		) || # account for new items
-		super();
+		super()
 	);
 };
 
