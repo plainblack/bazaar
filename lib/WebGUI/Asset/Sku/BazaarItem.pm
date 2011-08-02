@@ -15,7 +15,7 @@ package WebGUI::Asset::Sku::BazaarItem;
 =cut
 
 use Moose;
-use WebGUI::Asset::Definition;
+use WebGUI::Definition::Asset;
 extends 'WebGUI::Asset::Sku';
 with 'WebGUI::Role::Asset::Comments';
 
@@ -42,7 +42,7 @@ property product => (
     label           => 'Product',
     maxAttachments  => 5,
     hoverHelp       => 'The file that can be downloaded.',
-},
+);
 property screenshots => (
     tab             => "properties",
     fieldType       => "image",
@@ -68,17 +68,18 @@ property versionNumber => (
 property releaseDate => (
     tab             => "properties",
     fieldType       => "date",
-    default         => WebGUI::DateTime->new($session, time())->toDatabaseDate,
+    lazy            => 1,
+    default         => sub { WebGUI::DateTime->new($_->session, time())->toDatabaseDate },
     label           => 'Release Date',
     hoverHelp       => 'The date this version of the product was released publicly.',
 );
-property releaseNotes => {
+property releaseNotes => (
     tab             => "properties",
     fieldType       => "HTMLArea",
     default         => undef,
     label           => 'Release Notes',
     hoverHelp       => 'Information about this release or the release history.',
-    },
+);
 property supportUrl => (
     tab             => "properties",
     fieldType       => "url",
@@ -86,13 +87,13 @@ property supportUrl => (
     label           => 'Support URL',
     hoverHelp       => 'A URL where a user can find help for this product.',
 );
-property moreInfoUrl => {
+property moreInfoUrl => (
     tab             => "properties",
     fieldType       => "url",
     default         => undef,
     label           => 'More Info URL',
     hoverHelp       => 'A URL where a user can find out more details about this product.',
-    },
+);
 property demoUrl => (
     tab             => "properties",
     fieldType       => "url",
@@ -155,6 +156,7 @@ These methods are available from this class:
 
 #-------------------------------------------------------------------
 around canAdd => sub {
+    my $orig    = shift;
 	my $class = shift;
 	my $session = shift;
 	return $class->$orig($session, undef, '7');
@@ -173,7 +175,7 @@ sub canDownload {
 override canEdit => sub {
 	my $self = shift;
 	my $form = $self->session->form;
-	return $self->next::method;  # account for normal editing
+	return super()  # account for normal editing
 		|| $self->getParent->canEdit; # account for admins
 };
 
@@ -262,8 +264,8 @@ sub getEditForm {
 			value	=> "new"
 		);
 		$f->hidden(
-			name	=> "class",
-			value	=> $form->process("class","className")
+			name	=> "className",
+			value	=> $form->process("className","className")
 		);
 	}
 	
@@ -772,7 +774,7 @@ sub processPropertiesFromFormPost {
 sub purge {
 	my $self = shift;
 	foreach my $g ($self->getDownloadGroup, $self->getSubscriptionGroup) {
-		unless (grep { $_ eq $g->getId } qw(1 2 3 7 12)) ) {
+		unless (grep { $_ eq $g->getId } qw(1 2 3 7 12)) {
 			$g->delete;	
 		}
 	}

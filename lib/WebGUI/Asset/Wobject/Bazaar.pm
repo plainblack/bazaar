@@ -228,7 +228,7 @@ sub generateShortListLoop {
 
     my @shortList;
     foreach my $assetId ( @{ $assetIds } ) {
-        my $asset   = WebGUI::Asset->newByDynamicClass( $session, $assetId );
+        my $asset   = WebGUI::Asset->newById( $session, $assetId );
 
         # Skip assets we can't instanciate
         next unless defined $asset;
@@ -279,7 +279,7 @@ sub getViewVars {
     $vars->{ adminOn        } = $session->var->isAdminOn;
     $vars->{ controls       } = $self->getToolbar;
     $vars->{ canUpload      } = $self->canUpload;
-    $vars->{ upload_url     } = $self->getUrl('func=add;class=WebGUI::Asset::Sku::BazaarItem');
+    $vars->{ upload_url     } = $self->getUrl('func=add;className=WebGUI::Asset::Sku::BazaarItem');
 	
 	# keywords
 	$vars->{ keywords       } = WebGUI::Keyword->new( $session )->generateCloud( {
