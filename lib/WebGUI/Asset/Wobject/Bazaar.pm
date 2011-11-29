@@ -75,7 +75,7 @@ override canEdit => sub {
 				(
 					$self->session->form->process("assetId") eq "new" && 
 					$self->session->form->process("func") eq "editSave" && 
-					$self->session->form->process("class") eq "WebGUI::Asset::Sku::BazaarItem"
+					$self->session->form->process("className") eq "WebGUI::Asset::Sku::BazaarItem"
 				)
 			) && 
 			$self->canUpload( $userId )
@@ -447,7 +447,7 @@ override www_editSave => sub {
 	my $self    = shift;
     my $session = $self->session;
 
-    my $className   = $session->form->param('class');
+    my $className   = $session->form->param('className');
     my $func        = $session->form->param('func');
 
 	# Only allow Bazaar Items and friends to be added to a Bazaar.
