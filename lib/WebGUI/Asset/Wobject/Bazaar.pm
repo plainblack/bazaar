@@ -347,14 +347,14 @@ sub getViewVars {
 #}
 
 #-------------------------------------------------------------------
-sub prepareView {
+override prepareView => sub {
 	my $self = shift;
-	$self->SUPER::prepareView;
+	super();
 
     my $template = WebGUI::Asset::Template->new( $self->session, $self->templateId );
     $template->prepare;
     $self->{_template} = $template;
-}
+};
 
 #-------------------------------------------------------------------
 
