@@ -23,6 +23,7 @@ use JSON;
 use WebGUI::Asset::Template;
 use WebGUI::Exception;
 use WebGUI::Form;
+use WebGUI::FormBuilder;
 use WebGUI::Group;
 use WebGUI::Keyword;
 use WebGUI::Macro;
@@ -30,6 +31,15 @@ use WebGUI::Shop::Vendor;
 use WebGUI::Storage;
 use WebGUI::Storage::Image;
 use WebGUI::User;
+
+sub _negate_macros {
+    my $orig = shift;
+    my $self = shift;
+    return $self->$orig if !@_;
+    my $value = shift;
+    WebGUI::Macro::negate(\$value);
+    return $self->$orig($value);
+}
 
 define assetName           => 'Bazaar Item';
 define icon                => 'assets.gif';
@@ -58,6 +68,8 @@ property requirements => (
     label           => 'Requirements',
     hoverHelp       => 'The prerequisites to use this product.',
 );
+around requirements => \&_negate_macros;
+
 property versionNumber => (
     tab             => "properties",
     fieldType       => "text",
@@ -80,6 +92,8 @@ property releaseNotes => (
     label           => 'Release Notes',
     hoverHelp       => 'Information about this release or the release history.',
 );
+around releaseNotes => \&_negate_macros;
+
 property supportUrl => (
     tab             => "properties",
     fieldType       => "url",
@@ -135,6 +149,25 @@ property downloads => (
     fieldType       => "hidden",
     default         => 0,
 );
+around description  => \&_negate_macros;
+
+around url => sub {
+    my $orig = shift;
+    my $self = shift;
+    return $self->$orig() if !@_;
+    my $url = join '/', $self->getParent->getUrl, $self->title;
+};
+
+around title => sub {
+    my $orig = shift;
+    my $self = shift;
+    return $self->$orig() if !@_;
+    my $title = shift;
+    WebGUI::Macro::negate(\$title);
+    $self->$orig($title);
+    $self->url('get a new title');  ##Argument is thrown away, but it needs to be called
+    $self->menuTitle($title);
+};
 
 =head1 NAME
 
@@ -142,7 +175,7 @@ Package WebGUI::Asset::Sku::BazaarItem
 
 =head1 DESCRIPTION
 
-This sku works in conjunction with WebGUI::Asset::Wobject::Bazaar to build a digital download system.
+
 
 =head1 SYNOPSIS
 
@@ -249,104 +282,119 @@ sub getEditForm {
 	my $out = "";
 	my $bazaar = $self->getParent;
 	my $url = ($self->getId eq "new") ? $bazaar->getUrl : $self->getUrl;
-	my $f = WebGUI::HTMLForm->new($session, {action=>$url});
-	$f->hidden(
+	my $f = WebGUI::FormBuilder->new($session, action => $url);
+	$f->addField(
+	    type    => 'hidden',
 		name	=> 'func',
 		value 	=> 'editSave'
 		);
-	$f->hidden(
-		name	=>"proceed",
-		value	=>"view"
+	$f->addField(
+	    type    => 'hidden',
+		name	=> "proceed",
+		value	=> "view"
 		);
 	if ($self->getId eq "new") {
-		$f->hidden(
+		$f->addField(
+            type    => 'hidden',
 			name	=> "assetId",
 			value	=> "new"
 		);
-		$f->hidden(
+		$f->addField(
+            type    => 'hidden',
 			name	=> "className",
 			value	=> $form->process("className","className")
 		);
 	}
 	
 	# product info
-	$f->fieldSetStart('Product Information');
-	$f->text(
+    my $set = $f->addFieldset( legend => 'Product Information' );
+	$set->addField(
+	    type    => 'text',
 		label	=> 'Title',
 		name	=> 'title',
 		value	=> $self->title,
 	);
-	$f->textarea(
+	$set->addField(
+	    type    => 'textarea',
 		label	=> 'Short Description',
 		name	=> 'synopsis',
 		value	=> $self->synopsis,
 	);
-	$f->HTMLArea(
+	$set->addField(
+	    type        => 'HTMLArea',
 		label		=> 'Full Description',
 		richEditId	=> 'PBrichedit000000000002',
 		name		=> 'description',
 		value		=> $self->description,
 	);
-	$f->url(
+	$set->addField(
+	    type    => 'url',
 		label	=> 'More Information URL',
 		name	=> 'moreInfoUrl',
 		value	=> $self->moreInfoUrl,
 	);
-	$f->url(
+	$set->addField(
+	    type    => 'url',
 		label	=> 'Support URL',
 		name	=> 'supportUrl',
 		value	=> $self->supportUrl,
 	);
-	$f->url(
+	$set->addField(
+	    type    => 'url',
 		label	=> 'Demo URL',
 		name	=> 'demoUrl',
 		value	=> $self->demoUrl,
 	);
-	$f->image(
+	$set->addField(
+	    type    => 'image',
 		name			=> "screenshots",
 		label			=> "Screen Shots",
 		maxAttachments	=> 5,
 		value			=> $self->screenshots,
 	);
-	$f->file(
+	$set->addField(
+	    type    => 'file',
 		name			=> "product",
 		label			=> "Product File(s)",
 		maxAttachments	=> 5,
 		value			=> $self->product,
 	);
-	$f->fieldSetEnd;
 	
 	# release info
-	$f->fieldSetStart('This Release');
-	$f->text(
+    $set = $f->addFieldset( legend => 'This Release' );
+	$set->addField(
+	    type    => 'text',
 		label			=> 'Version Number',
 		name			=> 'versionNumber',
 		value			=> $self->versionNumber,
 		defaultValue	=> 1,
 	);
-	$f->date(
+	$set->addField(
+	    type    => 'date',
 		label			=> 'Release Date',
 		name			=> 'releaseDate',
 		defaultValue	=> WebGUI::DateTime->new($session, time())->toDatabaseDate,
 	);
-	$f->HTMLArea(
+	$set->addField(
+	    type    => 'HTMLArea',
 		label		=> 'Release Notes',
 		richEditId	=> 'PBrichedit000000000002',
 		name		=> 'releaseNotes',
 		value		=> $self->releaseNotes,
 	);
-	$f->HTMLArea(
+	$set->addField(
+	    type    => 'HTMLArea',
 		label		=> 'Requirements',
 		richEditId	=> 'PBrichedit000000000002',
 		name		=> 'requirements',
 		value		=> $self->requirements,
 	);
-	$f->fieldSetEnd;
 
 	# vendor info
-	$f->fieldSetStart('Vendor Information');
+    $set = $f->addFieldset( legend => 'Vendor Information' );
 	if ($session->user->isAdmin) {
-		$f->vendor(
+		$set->addField(
+		    type    => 'vendor',
 			label	=> 'Vendor',
 			name	=> 'vendorId',
 			value	=> $self->vendorId,
@@ -358,53 +406,60 @@ sub getEditForm {
 		unless (WebGUI::Error->caught) {
 			$vendorInfo = $vendor->get;
 		}
-		$f->text(
+		$set->addField(
+		    type    => 'text',
 			label	=> 'Name',
 			name	=> 'vendorName',
 			value	=> $vendorInfo->{name},
 		);
-		$f->text(
+		$set->addField(
+		    type    => 'text',
 			label	=> 'URL',
 			name	=> 'vendorUrl',
 			value	=> $vendorInfo->{url},
 		);
-		$f->selectBox(
+		$set->addField(
+		    type    => 'selectBox',
 			label			=> 'Preferred Payment Method',
 			name			=> 'vendorPaymentMethod',
 			options			=> {PayPal => 'PayPal'},
 			value			=> $vendorInfo->{preferredPaymentType},
 		);
-		$f->textarea(
+		$set->addField(
+		    type    => 'textarea',
 			label			=> 'Payment Address',
 			name			=> 'vendorPaymentInformation',
 			value			=> $vendorInfo->{paymentInformation},
 		);
 	}
-	$f->fieldSetEnd;
 
 	# bazaar info
-	$f->fieldSetStart('Bazaar Settings');
-	$f->float(
+    $set = $f->addFieldset( legend => 'Bazaar Settings' );
+	$set->addField(
+	    type    => 'float',
 		label		=> 'Price',
         name		=> 'price',
         value   	=> $self->price,
 		defaultValue	=> 0.00,
  	);
-	$f->interval(
+	$set->addField(
+	    type    => 'interval',
 		label		=> 'Download Period',
         name		=> 'downloadPeriod',
 		hoverHelp	=> 'The amount of time the user will have to download the product and updates.',
         value   	=> $self->downloadPeriod,
 		defaultValue	=> 60*60*24*365,
  	);
-	$f->text(
+	$set->addField(
+	    type    => 'text',
 		label	=> 'Keywords',
 		subtext	=> 'eg: asset utility',
         name	=> 'keywords',
         value   => WebGUI::Keyword->new($session)->getKeywordsForAsset({asset=>$self}),
  	);
-	$f->fieldSetEnd;
-	$f->submit;
+    $f->addButton(
+        type    => 'submit',
+    );
 	return $f;
 }
 
@@ -799,30 +854,6 @@ sub toggleSubscription {
 	else {
 		$self->subscribe;
 	}
-}
-
-#-------------------------------------------------------------------
-sub update {
-	my $self = shift;
-	my $properties = shift;
-	if (exists $properties->{url}) {
-		$properties->{url} = $self->getParent->getUrl.'/'.$self->getTitle;
-	}
-	if (exists $properties->{title}) {
-		WebGUI::Macro::negate(\$properties->{title});
-		$properties->{url} = $self->getParent->getUrl.'/'.$properties->{title};
-		$properties->{menuTitle} = $properties->{title};
-	}
-	if (exists $properties->{releaseNotes}) {
-		WebGUI::Macro::negate(\$properties->{releaseNotes});
-	}
-	if (exists $properties->{description}) {
-		WebGUI::Macro::negate(\$properties->{description});
-	}
-	if (exists $properties->{requirements}) {
-		WebGUI::Macro::negate(\$properties->{requirements});
-	}
-	$self->next::method($properties, @_);
 }
 
 #-------------------------------------------------------------------
