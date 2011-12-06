@@ -32,7 +32,7 @@ ALTER TABLE bazaar
 EOSQL1
 
 $session->db->write(<<EOSQL2);
-ALTER TABLE bazaarItem ADD COLUMN
+ALTER TABLE bazaarItem
    ADD COLUMN comments mediumtext,
    ADD COLUMN averageRating float
 EOSQL2

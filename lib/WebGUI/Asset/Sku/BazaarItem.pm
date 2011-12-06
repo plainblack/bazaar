@@ -284,23 +284,23 @@ sub getEditForm {
 	my $url = ($self->getId eq "new") ? $bazaar->getUrl : $self->getUrl;
 	my $f = WebGUI::FormBuilder->new($session, action => $url);
 	$f->addField(
-	    type    => 'hidden',
+	    'hidden',
 		name	=> 'func',
 		value 	=> 'editSave'
 		);
 	$f->addField(
-	    type    => 'hidden',
+	    'hidden',
 		name	=> "proceed",
 		value	=> "view"
 		);
 	if ($self->getId eq "new") {
 		$f->addField(
-            type    => 'hidden',
+            'hidden',
 			name	=> "assetId",
 			value	=> "new"
 		);
 		$f->addField(
-            type    => 'hidden',
+            'hidden',
 			name	=> "className",
 			value	=> $form->process("className","className")
 		);
@@ -309,51 +309,51 @@ sub getEditForm {
 	# product info
     my $set = $f->addFieldset( legend => 'Product Information' );
 	$set->addField(
-	    type    => 'text',
+	    'text',
 		label	=> 'Title',
 		name	=> 'title',
 		value	=> $self->title,
 	);
 	$set->addField(
-	    type    => 'textarea',
+	    'textarea',
 		label	=> 'Short Description',
 		name	=> 'synopsis',
 		value	=> $self->synopsis,
 	);
 	$set->addField(
-	    type        => 'HTMLArea',
+	    'HTMLArea',
 		label		=> 'Full Description',
 		richEditId	=> 'PBrichedit000000000002',
 		name		=> 'description',
 		value		=> $self->description,
 	);
 	$set->addField(
-	    type    => 'url',
+	    'url',
 		label	=> 'More Information URL',
 		name	=> 'moreInfoUrl',
 		value	=> $self->moreInfoUrl,
 	);
 	$set->addField(
-	    type    => 'url',
+	    'url',
 		label	=> 'Support URL',
 		name	=> 'supportUrl',
 		value	=> $self->supportUrl,
 	);
 	$set->addField(
-	    type    => 'url',
+	    'url',
 		label	=> 'Demo URL',
 		name	=> 'demoUrl',
 		value	=> $self->demoUrl,
 	);
 	$set->addField(
-	    type    => 'image',
+	    'image',
 		name			=> "screenshots",
 		label			=> "Screen Shots",
 		maxAttachments	=> 5,
 		value			=> $self->screenshots,
 	);
 	$set->addField(
-	    type    => 'file',
+	    'file',
 		name			=> "product",
 		label			=> "Product File(s)",
 		maxAttachments	=> 5,
@@ -363,27 +363,27 @@ sub getEditForm {
 	# release info
     $set = $f->addFieldset( legend => 'This Release' );
 	$set->addField(
-	    type    => 'text',
+	    'text',
 		label			=> 'Version Number',
 		name			=> 'versionNumber',
 		value			=> $self->versionNumber,
 		defaultValue	=> 1,
 	);
 	$set->addField(
-	    type    => 'date',
+	    'date',
 		label			=> 'Release Date',
 		name			=> 'releaseDate',
 		defaultValue	=> WebGUI::DateTime->new($session, time())->toDatabaseDate,
 	);
 	$set->addField(
-	    type    => 'HTMLArea',
+	    'HTMLArea',
 		label		=> 'Release Notes',
 		richEditId	=> 'PBrichedit000000000002',
 		name		=> 'releaseNotes',
 		value		=> $self->releaseNotes,
 	);
 	$set->addField(
-	    type    => 'HTMLArea',
+	    'HTMLArea',
 		label		=> 'Requirements',
 		richEditId	=> 'PBrichedit000000000002',
 		name		=> 'requirements',
@@ -394,7 +394,7 @@ sub getEditForm {
     $set = $f->addFieldset( legend => 'Vendor Information' );
 	if ($session->user->isAdmin) {
 		$set->addField(
-		    type    => 'vendor',
+		    'vendor',
 			label	=> 'Vendor',
 			name	=> 'vendorId',
 			value	=> $self->vendorId,
@@ -407,26 +407,26 @@ sub getEditForm {
 			$vendorInfo = $vendor->get;
 		}
 		$set->addField(
-		    type    => 'text',
+		    'text',
 			label	=> 'Name',
 			name	=> 'vendorName',
 			value	=> $vendorInfo->{name},
 		);
 		$set->addField(
-		    type    => 'text',
+		    'text',
 			label	=> 'URL',
 			name	=> 'vendorUrl',
 			value	=> $vendorInfo->{url},
 		);
 		$set->addField(
-		    type    => 'selectBox',
+		    'selectBox',
 			label			=> 'Preferred Payment Method',
 			name			=> 'vendorPaymentMethod',
 			options			=> {PayPal => 'PayPal'},
 			value			=> $vendorInfo->{preferredPaymentType},
 		);
 		$set->addField(
-		    type    => 'textarea',
+		    'textarea',
 			label			=> 'Payment Address',
 			name			=> 'vendorPaymentInformation',
 			value			=> $vendorInfo->{paymentInformation},
@@ -436,14 +436,14 @@ sub getEditForm {
 	# bazaar info
     $set = $f->addFieldset( legend => 'Bazaar Settings' );
 	$set->addField(
-	    type    => 'float',
+	    'float',
 		label		=> 'Price',
         name		=> 'price',
         value   	=> $self->price,
 		defaultValue	=> 0.00,
  	);
 	$set->addField(
-	    type    => 'interval',
+	    'interval',
 		label		=> 'Download Period',
         name		=> 'downloadPeriod',
 		hoverHelp	=> 'The amount of time the user will have to download the product and updates.',
@@ -451,14 +451,14 @@ sub getEditForm {
 		defaultValue	=> 60*60*24*365,
  	);
 	$set->addField(
-	    type    => 'text',
+	    'text',
 		label	=> 'Keywords',
 		subtext	=> 'eg: asset utility',
         name	=> 'keywords',
         value   => WebGUI::Keyword->new($session)->getKeywordsForAsset({asset=>$self}),
  	);
     $f->addButton(
-        type    => 'submit',
+        'submit',
     );
 	return $f;
 }
