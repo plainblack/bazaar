@@ -487,6 +487,13 @@ sub getKeywordLoopVars {
 }
 
 #-------------------------------------------------------------------
+override getEditTemplate => sub {
+    my $self = shift;
+    my $template = super();
+    $template->style($self->getParent->getStyleTemplateId);
+};
+
+#-------------------------------------------------------------------
 
 sub getMaxAllowedInCart {
 	my $self = shift;
