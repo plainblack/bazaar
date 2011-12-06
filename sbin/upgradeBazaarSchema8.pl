@@ -23,18 +23,18 @@ use WebGUI::Session;
 my $session = start();
 
 $session->db->write(<<EOSQL1);
-ALTER TABLE bazaar ADD COLUMN
-    templateId char(22) binary not null default 'vhNlRmwdrZivIk1IzEpvYQ',
-    bazaarItemTemplateId char(22) binary not null default 'VlkZo8ew56Yns_6WMIU8BQ',
-    searchTemplateId char(22) binary not null default 'ddc-E8lgRHBsSzOSr4aNrw',
-    vendorsOnly tinyint(1) not null default 0,
-    autoCreateVendors tinyint(1) not null default 1
+ALTER TABLE bazaar 
+   ADD COLUMN templateId char(22) binary not null default 'vhNlRmwdrZivIk1IzEpvYQ',
+   ADD COLUMN bazaarItemTemplateId char(22) binary not null default 'VlkZo8ew56Yns_6WMIU8BQ',
+   ADD COLUMN searchTemplateId char(22) binary not null default 'ddc-E8lgRHBsSzOSr4aNrw',
+   ADD COLUMN vendorsOnly tinyint(1) not null default 0,
+   ADD COLUMN autoCreateVendors tinyint(1) not null default 1
 EOSQL1
 
 $session->db->write(<<EOSQL2);
 ALTER TABLE bazaarItem ADD COLUMN
-	comments mediumtext,
-	averageRating float
+   ADD COLUMN comments mediumtext,
+   ADD COLUMN averageRating float
 EOSQL2
 
 finish($session);
