@@ -491,6 +491,7 @@ override getEditTemplate => sub {
     my $self = shift;
     my $template = super();
     $template->style($self->getParent->getStyleTemplateId);
+    return $template;
 };
 
 #-------------------------------------------------------------------
