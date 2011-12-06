@@ -307,7 +307,7 @@ sub getEditForm {
 	}
 	
 	# product info
-    my $set = $f->addFieldset( legend => 'Product Information' );
+    my $set = $f->addFieldset( legend => 'Product Information', name => 'product' );
 	$set->addField(
 	    'text',
 		label	=> 'Title',
@@ -361,7 +361,7 @@ sub getEditForm {
 	);
 	
 	# release info
-    $set = $f->addFieldset( legend => 'This Release' );
+    $set = $f->addFieldset( legend => 'This Release', name => 'this' );
 	$set->addField(
 	    'text',
 		label			=> 'Version Number',
@@ -391,7 +391,7 @@ sub getEditForm {
 	);
 
 	# vendor info
-    $set = $f->addFieldset( legend => 'Vendor Information' );
+    $set = $f->addFieldset( legend => 'Vendor Information', name => 'vendor' );
 	if ($session->user->isAdmin) {
 		$set->addField(
 		    'vendor',
@@ -434,7 +434,7 @@ sub getEditForm {
 	}
 
 	# bazaar info
-    $set = $f->addFieldset( legend => 'Bazaar Settings' );
+    $set = $f->addFieldset( legend => 'Bazaar Settings', name => 'settings' );
 	$set->addField(
 	    'float',
 		label		=> 'Price',
