@@ -51,7 +51,7 @@ sub start {
     GetOptions(
         'configFile=s' => \$configFile,
     );
-    my $session = WebGUI::Session->open($webguiRoot,$configFile);
+    my $session = WebGUI::Session->open($configFile);
     $session->user({userId=>3});
 
     return $session;
