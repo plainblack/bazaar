@@ -24,11 +24,11 @@ my $session = start();
 
 $session->db->write(<<EOSQL1);
 ALTER TABLE bazaar ADD COLUMN
-    templateId char(22) binary not null,
-    bazaarItemTemplateId char(22) binary,
-    searchTemplateId char(22) binary not null,
-    vendorsOnly tinyint(1) not null,
-    autoCreateVendors tinyint(1) not null
+    templateId char(22) binary not null default 'vhNlRmwdrZivIk1IzEpvYQ',
+    bazaarItemTemplateId char(22) binary not null default 'VlkZo8ew56Yns_6WMIU8BQ',
+    searchTemplateId char(22) binary not null default 'ddc-E8lgRHBsSzOSr4aNrw',
+    vendorsOnly tinyint(1) not null default 0,
+    autoCreateVendors tinyint(1) not null default 1
 EOSQL1
 
 $session->db->write(<<EOSQL2);
