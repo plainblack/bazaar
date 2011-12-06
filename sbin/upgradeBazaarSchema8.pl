@@ -50,32 +50,16 @@ sub start {
     $| = 1; #disable output buffering
     GetOptions(
         'configFile=s' => \$configFile,
-        'bazaar=s' => \$bazaarId,
-        'cs=s' => \$csId,
     );
     my $session = WebGUI::Session->open($webguiRoot,$configFile);
     $session->user({userId=>3});
-    
-    ## If your script is adding or changing content you need these lines, otherwise leave them commented
-    #
-    my $versionTag = WebGUI::VersionTag->getWorking($session);
-    $versionTag->set({name => 'Bazaar Migration'});
-    #
-    ##
-    
+
     return $session;
 }
 
 #-------------------------------------------------
 sub finish {
     my $session = shift;
-    
-    ## If your script is adding or changing content you need these lines, otherwise leave them commented
-    #
-    my $versionTag = WebGUI::VersionTag->getWorking($session);
-    $versionTag->commit;
-    ##
-    
     $session->var->end;
     $session->close;
 }
