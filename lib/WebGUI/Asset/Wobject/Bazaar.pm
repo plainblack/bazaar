@@ -110,7 +110,7 @@ sub formatList {
         results_loop    => $self->generateShortListLoop( $assetIds ),
     };
     
-    my $template = WebGUI::Asset::Template->new( $self->session, $self->searchTemplateId );
+    my $template = WebGUI::Asset::Template->newById( $self->session, $self->searchTemplateId );
     
 	return $self->processStyle( $template->process( $vars ) );
 }
@@ -351,7 +351,7 @@ override prepareView => sub {
 	my $self = shift;
 	super();
 
-    my $template = WebGUI::Asset::Template->new( $self->session, $self->templateId );
+    my $template = WebGUI::Asset::Template->newById( $self->session, $self->templateId );
     $template->prepare;
     $self->{_template} = $template;
 };

@@ -773,7 +773,7 @@ sub prepareView {
 		{ rel => 'stylesheet', type => "text/css" }
 	);
 
-    my $template = WebGUI::Asset::Template->new( $session, $bazaar->bazaarItemTemplateId );
+    my $template = WebGUI::Asset::Template->newById( $session, $bazaar->bazaarItemTemplateId );
     $template->prepare;
     $self->{_viewTemplate} = $template;
 }
