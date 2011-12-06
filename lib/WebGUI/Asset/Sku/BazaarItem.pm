@@ -457,8 +457,9 @@ sub getEditForm {
         name	=> 'keywords',
         value   => WebGUI::Keyword->new($session)->getKeywordsForAsset({asset=>$self}),
  	);
-    $f->addButton(
+    $f->addField(
         'submit',
+        name => 'save',
     );
 	return $f;
 }
