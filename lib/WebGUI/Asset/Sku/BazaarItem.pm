@@ -156,6 +156,7 @@ around url => sub {
     my $self = shift;
     return $self->$orig() if !@_;
     my $url = join '/', $self->getParent->getUrl, $self->title;
+    return $self->$orig($url);
 };
 
 around title => sub {
@@ -165,7 +166,7 @@ around title => sub {
     my $title = shift;
     WebGUI::Macro::negate(\$title);
     $self->$orig($title);
-    $self->url('get a new title');  ##Argument is thrown away, but it needs to be called
+    $self->url($title);  ##Argument is thrown away, but it needs to be called
     $self->menuTitle($title);
 };
 
