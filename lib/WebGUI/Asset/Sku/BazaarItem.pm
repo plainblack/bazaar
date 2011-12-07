@@ -283,11 +283,6 @@ sub getEditForm {
 	my $f = WebGUI::FormBuilder->new($session, action => $url);
 	$f->addField(
 	    'hidden',
-		name	=> 'func',
-		value 	=> 'editSave'
-		);
-	$f->addField(
-	    'hidden',
 		name	=> "proceed",
 		value	=> "view"
 		);
