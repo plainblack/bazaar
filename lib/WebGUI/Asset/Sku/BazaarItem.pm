@@ -281,11 +281,6 @@ sub getEditForm {
 	my $bazaar = $self->getParent;
 	my $url = ($self->getId eq "new") ? $bazaar->getUrl : $self->getUrl;
 	my $f = WebGUI::FormBuilder->new($session, action => $url);
-	$f->addField(
-	    'hidden',
-		name	=> "proceed",
-		value	=> "view"
-		);
 	if ($self->getId eq "new") {
 		$f->addField(
             'hidden',
