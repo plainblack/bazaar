@@ -81,7 +81,7 @@ property releaseDate => (
     tab             => "properties",
     fieldType       => "date",
     lazy            => 1,
-    default         => sub { WebGUI::DateTime->new($_->session, time())->toDatabaseDate },
+    default         => sub { WebGUI::DateTime->new(shift->session, time())->toDatabaseDate },
     label           => 'Release Date',
     hoverHelp       => 'The date this version of the product was released publicly.',
 );
