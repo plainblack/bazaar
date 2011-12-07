@@ -778,15 +778,16 @@ override prepareView => sub {
 
 #-------------------------------------------------------------------
 override processEditForm => sub {
-	my $self        = shift;
-	my $session     = $self->session;
-	my $form        = $session->form;
-	my $user        = $session->user;
-	my $properties = {};
-	
-    super();
+    my $self        = shift;
+    my $session     = $self->session;
+    my $form        = $session->form;
+    my $user        = $session->user;
+    my $properties = {};
 
-	my $oldVersion  = $self->versionNumber;
+    ##Have to save this before we call the parent method.
+    my $oldVersion  = $self->versionNumber;
+
+    super();
 
 	if ( $self->ownerUserId eq '3' ) {
 		$properties->{ownerUserId} = $user->userId;
