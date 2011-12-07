@@ -170,6 +170,13 @@ around title => sub {
     $self->menuTitle($title);
 };
 
+around menuTitle => sub {
+    my $orig = shift;
+    my $self = shift;
+    return $self->$orig() if !@_;
+    return $self->$orig($self->title);
+};
+
 =head1 NAME
 
 Package WebGUI::Asset::Sku::BazaarItem
