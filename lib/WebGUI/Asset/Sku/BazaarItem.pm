@@ -676,12 +676,12 @@ sub getViewVars {
 }
 
 #-------------------------------------------------------------------
-sub indexContent {
+override indexContent => sub {
 	my $self = shift;
-	my $indexer = $self->next::method;
+	my $indexer = super();
 	$indexer->addKeywords($self->releaseNotes);
 	$indexer->addKeywords($self->requirements);
-}
+};
 
 #-------------------------------------------------------------------
 sub isSubscribed {
@@ -764,22 +764,21 @@ sub onRefund {
 }
 
 #-------------------------------------------------------------------
-sub prepareView {
+override prepareView => sub {
 	my $self    = shift;
     my $session = $self->session;
 	my $bazaar  = $self->getParent;
 
-	$self->next::method;
+	super();
 
-	$self->session->style->setLink(
+	$self->session->style->setCss(
 		$self->session->url->extras("yui/build/grids/grids-min.css"),
-		{ rel => 'stylesheet', type => "text/css" }
 	);
 
     my $template = WebGUI::Asset::Template->newById( $session, $bazaar->bazaarItemTemplateId );
     $template->prepare;
     $self->{_viewTemplate} = $template;
-}
+};
 
 
 #-------------------------------------------------------------------
