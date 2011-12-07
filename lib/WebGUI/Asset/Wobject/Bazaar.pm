@@ -435,29 +435,4 @@ sub www_byVendor {
 	return $self->formatList($ids, $vendor->get('name'));
 }
 
-#-------------------------------------------------------------------
-
-=head2 www_editSave ( )
-
-We're extending www_editSave() stop the creation of non-bazaar items as children.
-
-=cut
-
-override www_editSave => sub {
-	my $self    = shift;
-    my $session = $self->session;
-
-    my $className   = $session->form->param('className');
-    my $func        = $session->form->param('func');
-
-	# Only allow Bazaar Items and friends to be added to a Bazaar.
-    if ( $func eq 'add' && $className !~ /^WebGUI::Asset::Sku::BazaarItem/ ) {
-		return $self->getParent->www_view;
-    }    
-
-    return super();
-};
-
-
-
 1;
