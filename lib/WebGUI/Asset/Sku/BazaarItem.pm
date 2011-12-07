@@ -278,8 +278,6 @@ sub getEditForm {
 	my $self = shift;
 	my $session = $self->session;
 	my $form = $session->form;
-	my $newPage = 0;
-	my $out = "";
 	my $bazaar = $self->getParent;
 	my $url = ($self->getId eq "new") ? $bazaar->getUrl : $self->getUrl;
 	my $f = WebGUI::FormBuilder->new($session, action => $url);
@@ -785,14 +783,14 @@ sub prepareView {
 
 
 #-------------------------------------------------------------------
-sub processPropertiesFromFormPost {
+override processEditForm => sub {
 	my $self        = shift;
 	my $session     = $self->session;
 	my $form        = $session->form;
 	my $user        = $session->user;
 	my $properties = {};
 	
-    $self->next::method( @_ );
+    super();
 
 	my $oldVersion  = $self->versionNumber;
 
@@ -828,10 +826,10 @@ sub processPropertiesFromFormPost {
 			$self->getTitle . ' Updated'
 			);
 	}
-}
+};
 
 #-------------------------------------------------------------------
-sub purge {
+override purge => sub {
 	my $self = shift;
 	foreach my $g ($self->getDownloadGroup, $self->getSubscriptionGroup) {
 		unless (grep { $_ eq $g->getId } qw(1 2 3 7 12)) {
@@ -841,8 +839,8 @@ sub purge {
 	foreach my $s ($self->getProductStorage, $self->getScreenStorage) {
 		$s->delete;	
 	}
-	$self->next::method(@_);
-}
+	return super();
+};
 
 #-------------------------------------------------------------------
 sub subscribe {
