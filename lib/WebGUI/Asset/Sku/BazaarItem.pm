@@ -450,6 +450,21 @@ sub getEditForm {
 }
 
 #-------------------------------------------------------------------
+
+=head2 getEditTemplate
+
+Override the base method to use the style template from the parent bazaar.
+
+=cut
+
+override getEditTemplate => sub {
+    my $self = shift;
+    my $template = super();
+    $template->style($self->getParent->getStyleTemplateId);
+    return $template;
+};
+
+#-------------------------------------------------------------------
 sub getKeywordLoopVars {
     my $self    = shift;
     my $session = $self->session;
@@ -904,21 +919,6 @@ sub www_download {
 		return "redirect";
     }
     return $self->www_view;
-}
-
-#-------------------------------------------------------------------
-
-=head2 www_edit
-
-Displays edit form.
-
-=cut
-
-sub www_edit {
-	my $self = shift;
-	return $self->session->privilege->insufficient unless $self->canEdit;
-	return $self->session->privilege->locked unless $self->canEditIfLocked;
-	return $self->getParent->processStyle($self->getEditForm->print);
 }
 
 #-------------------------------------------------------------------
