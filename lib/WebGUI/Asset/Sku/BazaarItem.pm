@@ -457,9 +457,10 @@ Override the base method to use the style template from the parent bazaar.
 
 =cut
 
-override getEditTemplate => sub {
+around getEditTemplate => sub {
+    my $orig = shift;
     my $self = shift;
-    my $template = super();
+    my $template = $self->$orig(@_);
     $template->style($self->getParent->getStyleTemplateId);
     return $template;
 };
