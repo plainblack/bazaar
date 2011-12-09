@@ -168,6 +168,14 @@ around title => sub {
     $self->$orig($title);
     $self->url($title);  ##Argument is thrown away, but it needs to be called
     $self->menuTitle($title);
+    return $self->title;
+};
+
+around menuTitle => sub {
+    my $orig = shift;
+    my $self = shift;
+    return $self->$orig() if !@_;
+    return $self->$orig($self->title);
 };
 
 around menuTitle => sub {
